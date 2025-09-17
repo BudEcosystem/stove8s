@@ -17,11 +17,51 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+type SnapShotSelector struct {
+	// +required
+	Object corev1.ObjectReference `json:"object"`
+	// +required
+	Container string `json:"container"`
+}
+
+type SnapShotInputPolicy string
+
+// TODO: add support for Replace, etc ...
+const IfNotPresent SnapShotInputPolicy = "IfNotPresent"
+
+type SnapShotInput struct {
+	// +required
+	After string `json:"after"`
+	// +required
+	Delay time.Duration `json:"delay"`
+	// +required
+	Policy SnapShotInputPolicy `json:"policy"`
+	// TODO: implement me
+	// Schedule string              `json:"schedule"`
+}
+
+type SnapShotOutputContainerRegistry struct {
+	// +optional
+	ImagePushSecret string `json:"imagePushSecret"`
+	// +required
+	Repository string `json:"repository"`
+	// +required
+	Tag string `json:"tag"`
+}
+
+type SnapShotOutput struct {
+	// +required
+	ContainerRegistry SnapShotOutputContainerRegistry `json:"containerRegistry"`
+}
 
 // SnapShotSpec defines the desired state of SnapShot
 type SnapShotSpec struct {
@@ -30,9 +70,12 @@ type SnapShotSpec struct {
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-	// foo is an example field of SnapShot. Edit snapshot_types.go to remove/update
-	// +optional
-	Foo *string `json:"foo,omitempty"`
+	// +required
+	Selector SnapShotSelector `json:"selector"`
+	// +required
+	Input SnapShotInput `json:"input"`
+	// +required
+	Output SnapShotOutput `json:"output"`
 }
 
 // SnapShotStatus defines the observed state of SnapShot.
