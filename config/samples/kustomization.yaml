@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- stovek8s_v1beta1_snapshot.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
