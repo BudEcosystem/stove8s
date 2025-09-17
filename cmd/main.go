@@ -39,8 +39,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	stovek8sv1beta1 "bud.studio/stovek8s/api/v1beta1"
-	"bud.studio/stovek8s/internal/controller"
+	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
+	"bud.studio/stove8s/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -52,7 +52,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(stovek8sv1beta1.AddToScheme(scheme))
+	utilruntime.Must(stove8sv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 

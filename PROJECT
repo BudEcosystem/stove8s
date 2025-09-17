@@ -6,16 +6,16 @@ cliVersion: v4.7.1
 domain: bud.studio
 layout:
 - go.kubebuilder.io/v4
-projectName: stovek8s
-repo: bud.studio/stovek8s
+projectName: stove8s
+repo: bud.studio/stove8s
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: bud.studio
-  group: stovek8s
+  group: stove8s
   kind: SnapShot
-  path: bud.studio/stovek8s/api/v1beta1
+  path: bud.studio/stove8s/api/v1beta1
   version: v1beta1
 version: "3"

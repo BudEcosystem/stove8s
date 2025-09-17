@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	stovek8sv1beta1 "bud.studio/stovek8s/api/v1beta1"
+	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
 )
 
 // SnapShotReconciler reconciles a SnapShot object
@@ -33,9 +33,9 @@ type SnapShotReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=stovek8s.bud.studio,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=stovek8s.bud.studio,resources=snapshots/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=stovek8s.bud.studio,resources=snapshots/finalizers,verbs=update
+// +kubebuilder:rbac:groups=stove8s.bud.studio,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=stove8s.bud.studio,resources=snapshots/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=stove8s.bud.studio,resources=snapshots/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -57,7 +57,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *SnapShotReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&stovek8sv1beta1.SnapShot{}).
+		For(&stove8sv1beta1.SnapShot{}).
 		Named("snapshot").
 		Complete(r)
 }

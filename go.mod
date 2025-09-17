@@ -1,4 +1,4 @@
-module bud.studio/stovek8s
+module bud.studio/stove8s
 
 go 1.24.0
 

@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	stovek8sv1beta1 "bud.studio/stovek8s/api/v1beta1"
+	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
 )
 
 var _ = Describe("SnapShot Controller", func() {
@@ -40,13 +40,13 @@ var _ = Describe("SnapShot Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		snapshot := &stovek8sv1beta1.SnapShot{}
+		snapshot := &stove8sv1beta1.SnapShot{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind SnapShot")
 			err := k8sClient.Get(ctx, typeNamespacedName, snapshot)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &stovek8sv1beta1.SnapShot{
+				resource := &stove8sv1beta1.SnapShot{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,7 +59,7 @@ var _ = Describe("SnapShot Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &stovek8sv1beta1.SnapShot{}
+			resource := &stove8sv1beta1.SnapShot{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-  name: snapshots.stovek8s.bud.studio
+  name: snapshots.stove8s.bud.studio
 spec:
-  group: stovek8s.bud.studio
+  group: stove8s.bud.studio
   names:
     kind: SnapShot
     listKind: SnapShotList
