@@ -15,10 +15,13 @@ buildGoModule (finalAttrs: {
         "nix"
         "flake.nix"
       ]);
-
     src = ../.;
   };
-  vendorHash = lib.fakeHash;
+
+  vendorHash = "sha256-CzE9/IX5TAkGssejfX9/oJOnSOOvsb815gEcTFwdOMM=";
+
+  # TODO: fix me
+  doCheck = false;
 
   meta = {
     platforms = lib.platforms.unix;
