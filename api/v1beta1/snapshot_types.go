@@ -78,10 +78,27 @@ type SnapShotSpec struct {
 	Output SnapShotOutput `json:"output"`
 }
 
+type SnapShotStatusStage string
+
+const (
+	CriuDumping SnapShotStatusStage = "CriuDumping"
+	Fromating   SnapShotStatusStage = "Fromating"
+	Pushing     SnapShotStatusStage = "Pushing"
+)
+
+type SnapShotStatusState string
+
+const (
+	Idle    SnapShotStatusState = "Idle"
+	Started SnapShotStatusState = "Started"
+	Failed  SnapShotStatusState = "Failed"
+	Success SnapShotStatusState = "Success"
+)
+
 // SnapShotStatus defines the observed state of SnapShot.
 type SnapShotStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Stage SnapShotStatusStage `json:"stage"`
+	State SnapShotStatusState `json:"state"`
 }
 
 // +kubebuilder:object:root=true
