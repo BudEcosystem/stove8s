@@ -6,6 +6,8 @@ cliVersion: v4.7.1
 domain: bud.studio
 layout:
 - go.kubebuilder.io/v4
+plugins:
+  helm.kubebuilder.io/v1-alpha: {}
 projectName: stove8s
 repo: bud.studio/stove8s
 resources:
