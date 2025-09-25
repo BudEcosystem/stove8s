@@ -1,9 +1,0 @@
-apiVersion: stove8s.bud.studio/v1beta1
-kind: SnapShot
-metadata:
-  labels:
-    app.kubernetes.io/name: stove8s
-    app.kubernetes.io/managed-by: kustomize
-  name: snapshot-sample
-spec:
-  # TODO(user): Add fields here
