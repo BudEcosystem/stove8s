@@ -7,6 +7,7 @@
   markdownlint-cli,
 
   kubebuilder,
+  kubernetes-controller-tools,
 }:
 
 mkShell {
@@ -17,6 +18,7 @@ mkShell {
     gopls
     nixfmt-rfc-style
     markdownlint-cli
+    kubernetes-controller-tools
   ];
 
   shellHook = ''
