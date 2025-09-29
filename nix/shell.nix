@@ -7,6 +7,7 @@
   markdownlint-cli,
 
   kubebuilder,
+  jq,
   kubernetes-controller-tools,
 }:
 
@@ -14,6 +15,7 @@ mkShell {
   inputsFrom = [ stove8s ];
 
   buildInputs = [
+    jq
     kubebuilder
     gopls
     nixfmt-rfc-style
