@@ -1,7 +1,6 @@
 package daemonset
 
 // NOTE: daemonset should be stateless across restarts
-// all the state is held in memorry
 
 import (
 	"context"
@@ -12,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"bud.studio/stove8s/internal/daemonset/resources"
+	"bud.studio/stove8s/internal/daemonset/resources/oci"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -25,7 +24,7 @@ func routerInit() *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Mount("/oci", resources.OciResource{}.Routes())
+	r.Mount("/oci", oci.OciResource{}.Init())
 
 	return r
 }
