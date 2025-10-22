@@ -50,7 +50,7 @@ func main() {
 		return
 	}
 
-	ref, err := name.ParseReference("docker.io/budstudio/sinan:latest")
+	ref, err := name.ParseReference("harbor.bud.studio/stove8s/test:latest")
 	if err != nil {
 		log.Fatalln("Creating reference", err)
 	}
@@ -59,7 +59,7 @@ func main() {
 		ref,
 		idx,
 		remote.WithAuth(authn.FromConfig(authn.AuthConfig{
-			Username: "budsinan",
+			Username: "robot$stove8s",
 			Password: "<change_me>",
 		})),
 	)
@@ -113,7 +113,12 @@ func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
 		return nil, fmt.Errorf("Mutating configFile: %v", err)
 	}
 
-	img, err = mutate.Time(img, time.Now())
+	spec, config, err := dumpInspect(checkpointDump)
+	if err != nil {
+		return nil, err
+	}
+
+	img, err = mutate.Time(img, config.CheckpointedAt)
 	if err != nil {
 		return nil, fmt.Errorf("Mutating time: %v", err)
 	}
@@ -129,7 +134,7 @@ func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
 			},
 		},
 	})
-	annotations, err := annotationsFromDump(checkpointDump)
+	annotations, err := annotationsFromDump(spec, config)
 	if err != nil {
 		return nil, fmt.Errorf("Getting annotations: %v", err)
 	}
@@ -138,12 +143,8 @@ func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
 	return idx, nil
 }
 
-func annotationsFromDump(checkpointDump io.Reader) (map[string]string, error) {
+func annotationsFromDump(spec *specs.Spec, config *ContainerConfig) (map[string]string, error) {
 	annotations := make(map[string]string)
-	spec, config, err := dumpInspect(checkpointDump)
-	if err != nil {
-		return nil, err
-	}
 
 	criName, ok := spec.Annotations["io.container.manager"]
 	// NOTE: we only support containerd for the initial phase
