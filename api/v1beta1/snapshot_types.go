@@ -19,16 +19,24 @@ package v1beta1
 import (
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ObjectReference struct {
+	// +required
+	Kind string `json:"kind"`
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// +required
+	Name string `json:"name"`
+}
+
 type SnapShotSelector struct {
 	// +required
-	Object corev1.ObjectReference `json:"object"`
+	Object ObjectReference `json:"object"`
 	// +required
 	Container string `json:"container"`
 }

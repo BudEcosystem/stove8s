@@ -51,6 +51,16 @@ var _ = Describe("SnapShot Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
+
+					Spec: stove8sv1beta1.SnapShotSpec{
+						Selector: stove8sv1beta1.SnapShotSelector{
+							Object: stove8sv1beta1.ObjectReference{
+								Kind: "Pod",
+								Name: "vllm",
+							},
+						},
+					},
+
 					// TODO(user): Specify other spec details if needed.
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())

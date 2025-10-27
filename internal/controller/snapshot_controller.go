@@ -78,7 +78,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	pod, requeue, err := r.podFromObjectRef(ctx, snapshot.Spec.Selector.Object)
+	pod, requeue, err := r.podFromObjectRef(ctx, snapshot.Spec.Selector.Object, snapshot.Namespace)
 	if err != nil {
 		if requeue {
 			return ctrl.Result{}, nil
@@ -170,20 +170,25 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	return cr.Items[0], nil
 }
 
-func (r *SnapShotReconciler) podFromObjectRef(ctx context.Context, obj corev1.ObjectReference) (*corev1.Pod, bool, error) {
+func (r *SnapShotReconciler) podFromObjectRef(ctx context.Context, obj stove8sv1beta1.ObjectReference, snapShotNamespace string) (*corev1.Pod, bool, error) {
 	log := logf.FromContext(ctx)
 	pod := &corev1.Pod{}
 	var namespacedName apitypes.NamespacedName
+
+	namespace := obj.Namespace
+	if namespace == "" {
+		namespace = snapShotNamespace
+	}
 
 	switch obj.Kind {
 	// TODO: implement deployment, job, etc...
 	case "Pod":
 		namespacedName = apitypes.NamespacedName{
-			Namespace: obj.Namespace,
+			Namespace: namespace,
 			Name:      obj.Name,
 		}
 	default:
-		err := errors.New("unsupported Kind")
+		err := fmt.Errorf("unsupported kind: %v", obj.Kind)
 		log.Error(err, obj.Kind)
 		return nil, false, err
 	}
