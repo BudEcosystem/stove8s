@@ -78,7 +78,12 @@ func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer checkpointDump.Close()
+	defer func() {
+		err := checkpointDump.Close()
+		if err != nil {
+			log.Fatalln("Closing checkpoint dump", err)
+		}
+	}()
 
 	// TODO: checkpointDumpLayer := stream.NewLayer(checkpointDump)
 	checkpointDumpLayer, err := tarball.LayerFromFile(
@@ -88,17 +93,17 @@ func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
 		tarball.WithCompression(compression.None),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Getting layer from file: %v", err)
+		return nil, fmt.Errorf("getting layer from file: %v", err)
 	}
 
 	img, err := mutate.AppendLayers(empty.Image, checkpointDumpLayer)
 	if err != nil {
-		return nil, fmt.Errorf("Appending Layer: %v", err)
+		return nil, fmt.Errorf("appending Layer: %v", err)
 	}
 
 	cfg, err := img.ConfigFile()
 	if err != nil {
-		return nil, fmt.Errorf("Getting configFile: %v", err)
+		return nil, fmt.Errorf("getting configFile: %v", err)
 	}
 	cfg.Architecture = runtime.GOARCH
 	cfg.OS = runtime.GOOS
@@ -110,7 +115,7 @@ func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
 
 	img, err = mutate.ConfigFile(img, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("Mutating configFile: %v", err)
+		return nil, fmt.Errorf("mutating configFile: %v", err)
 	}
 
 	spec, config, err := dumpInspect(checkpointDump)
@@ -120,7 +125,7 @@ func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
 
 	img, err = mutate.Time(img, config.CheckpointedAt)
 	if err != nil {
-		return nil, fmt.Errorf("Mutating time: %v", err)
+		return nil, fmt.Errorf("mutating time: %v", err)
 	}
 
 	img = mutate.ConfigMediaType(img, types.OCIManifestSchema1)
@@ -136,7 +141,7 @@ func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
 	})
 	annotations, err := annotationsFromDump(spec, config)
 	if err != nil {
-		return nil, fmt.Errorf("Getting annotations: %v", err)
+		return nil, fmt.Errorf("getting annotations: %v", err)
 	}
 	idx = mutate.Annotations(idx, annotations).(v1.ImageIndex)
 
@@ -150,7 +155,7 @@ func annotationsFromDump(spec *specs.Spec, config *ContainerConfig) (map[string]
 	// NOTE: we only support containerd for the initial phase
 	// podman and cri-o sets this, so exclude them
 	if ok {
-		return nil, fmt.Errorf("Unsupported high-level container runtime %v", criName)
+		return nil, fmt.Errorf("unsupported high-level container runtime %v", criName)
 	}
 
 	annotations[CheckpointAnnotationEngine] = "containerd"
@@ -228,7 +233,7 @@ func tarFilesRead(files []string, tarFile io.Reader) (map[string][]byte, error) 
 
 	for index := range res {
 		if res[index] == nil {
-			return res, fmt.Errorf("Can't extract file %s", index)
+			return res, fmt.Errorf("can't extract file %s", index)
 		}
 	}
 

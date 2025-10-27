@@ -105,13 +105,10 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	log := logf.FromContext(ctx)
 
 	idx := slices.IndexFunc(pod.Spec.Containers, func(container corev1.Container) bool {
-		if container.Name == containerName {
-			return true
-		}
-		return false
+		return container.Name == containerName
 	})
 	if idx < 0 {
-		err := errors.New("No such container")
+		err := errors.New("no such container")
 		log.Error(err, containerName)
 		return "", err
 	}
@@ -124,14 +121,10 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	}
 
 	idx = slices.IndexFunc(node.Status.Addresses, func(addr corev1.NodeAddress) bool {
-		if addr.Type == corev1.NodeInternalIP {
-			return true
-		}
-
-		return false
+		return addr.Type == corev1.NodeInternalIP
 	})
 	if idx < 0 {
-		err := errors.New("No internaIP for node")
+		err := errors.New("no internaIP for node")
 		log.Error(err, node.Name)
 		return "", err
 	}
@@ -140,7 +133,7 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 		"https://%v:%v/checkpoint/%v/%v/%v",
 		node.Status.Addresses[idx].Address,
 		node.Status.DaemonEndpoints.KubeletEndpoint,
-		pod.ObjectMeta.Namespace,
+		pod.Namespace,
 		pod.Name,
 		containerName,
 	)
@@ -151,7 +144,7 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	}
 	resp, err := r.kubeletClient.Do(checkpointReq)
 	if err != nil {
-		log.Error(err, "checkpoint request failed")
+		log.Error(err, "Checkpoint request failed")
 		return "", err
 	}
 
@@ -169,7 +162,7 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	}
 
 	if len(cr.Items) != 1 {
-		err := errors.New("Unexpected output, ooga booga")
+		err := errors.New("unexpected output, ooga booga")
 		log.Error(err, node.Name)
 		return "", err
 	}
@@ -190,7 +183,7 @@ func (r *SnapShotReconciler) podFromObjectRef(ctx context.Context, obj corev1.Ob
 			Name:      obj.Name,
 		}
 	default:
-		err := errors.New("Unsupported Kind")
+		err := errors.New("unsupported Kind")
 		log.Error(err, obj.Kind)
 		return nil, false, err
 	}
@@ -213,7 +206,7 @@ func (r *SnapShotReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	caCertPool := x509.NewCertPool()
 	ok := caCertPool.AppendCertsFromPEM(caCert)
 	if !ok {
-		return errors.New("Failed to get cert from PEM")
+		return errors.New("failed to get cert from PEM")
 	}
 
 	r.kubeletClient = http.Client{

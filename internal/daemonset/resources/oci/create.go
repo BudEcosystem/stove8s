@@ -55,5 +55,10 @@ func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
 	}
 	go rs.CreateUnwrapped(id)
 
-	rw.Write(resp)
+	_, err = rw.Write(resp)
+	if err != nil {
+		slog.Error("Writing response", "err", err.Error())
+		http.Error(rw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }

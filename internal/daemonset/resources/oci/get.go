@@ -21,7 +21,12 @@ func (rs OciResource) List(rw http.ResponseWriter, req *http.Request) {
 		slog.Error("Marshaling response json", "err", err.Error())
 	}
 
-	rw.Write(resp)
+	_, err = rw.Write(resp)
+	if err != nil {
+		slog.Error("Writing response", "err", err.Error())
+		http.Error(rw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (rs OciResource) Get(rw http.ResponseWriter, req *http.Request) {
@@ -48,5 +53,10 @@ func (rs OciResource) Get(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	rw.Write(resp)
+	_, err = rw.Write(resp)
+	if err != nil {
+		slog.Error("Writing response", "err", err.Error())
+		http.Error(rw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }
