@@ -9,6 +9,9 @@
   kubebuilder,
   jq,
   kubernetes-controller-tools,
+
+  kubectl,
+  k3d,
 }:
 
 mkShell {
@@ -21,6 +24,8 @@ mkShell {
     nixfmt-rfc-style
     markdownlint-cli
     kubernetes-controller-tools
+    kubectl
+    k3d
   ];
 
   shellHook = ''
