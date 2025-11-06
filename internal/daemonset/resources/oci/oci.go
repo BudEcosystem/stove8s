@@ -12,7 +12,6 @@ const (
 	Fromating ociStatusStage = "Fromating"
 	Pushing   ociStatusStage = "Pushing"
 
-	Idle    ociStatusState = "Idle"
 	Started ociStatusState = "Started"
 	Failed  ociStatusState = "Failed"
 	Success ociStatusState = "Success"
@@ -25,11 +24,11 @@ type OciStatus struct {
 }
 
 type OciResource struct {
-	jobs map[uuid.UUID]OciStatus
+	jobs map[uuid.UUID]*OciStatus
 }
 
 func (rs OciResource) Init() chi.Router {
-	rs.jobs = make(map[uuid.UUID]OciStatus)
+	rs.jobs = make(map[uuid.UUID]*OciStatus)
 
 	r := chi.NewRouter()
 

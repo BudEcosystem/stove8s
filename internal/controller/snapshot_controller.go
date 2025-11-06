@@ -34,6 +34,7 @@ import (
 	apitypes "k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
@@ -70,11 +71,11 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("memcached resource not found. Ignoring since object must be deleted")
+			log.Info("snapshot resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get memcached")
+		log.Error(err, "Failed to get snapshot")
 		return ctrl.Result{}, err
 	}
 
@@ -86,6 +87,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 	}
+	controllerutil.SetControllerReference(snapshot, pod, r.Scheme)
 
 	snapshot.Status.Stage = stove8sv1beta1.CriuDumping
 	// checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
@@ -224,6 +226,7 @@ func (r *SnapShotReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&stove8sv1beta1.SnapShot{}).
+		Owns(&corev1.Pod{}).
 		Named("snapshot").
 		Complete(r)
 }

@@ -1,4 +1,4 @@
-package main
+package oci
 
 // https://github.com/checkpoint-restore/checkpointctl/blob/main/lib/annotations.go
 const (

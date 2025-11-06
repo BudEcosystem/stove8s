@@ -5,23 +5,64 @@ import (
 	"log/slog"
 	"net/http"
 
+	"bud.studio/stove8s/internal/oci"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/uuid"
 )
 
-type createReq struct {
-	DumpPath string `json:"dump_path" validate:"required,filepath"`
+type CreateReq struct {
+	CheckpointDumpPath string `json:"checkpoint_dump_path" validate:"required,filepath"`
+	ImageReference     string `json:"image_reference"`
 }
 
 type createResp struct {
 	JobId string `json:"job_id"`
 }
 
-func (rs OciResource) CreateUnwrapped(id uuid.UUID) {
+func (rs OciResource) CreateUnwrapped(id uuid.UUID, data *CreateReq) {
+	status := OciStatus{
+		Stage: Fromating,
+		State: Started,
+	}
+	rs.jobs[id] = &status
+
+	idx, err := oci.BuildIdx(data.CheckpointDumpPath)
+	if err != nil {
+		slog.Error("Building oci image", "err", err)
+		status.State = Failed
+		return
+	}
+	ref, err := name.ParseReference("harbor.bud.studio/stove8s/test:latest")
+	if err != nil {
+		slog.Error("Creating reference", "err", err)
+		status.State = Failed
+		return
+	}
+
+	status.Stage = Pushing
+	status.State = Started
+	err = remote.WriteIndex(
+		ref,
+		idx,
+		remote.WithAuth(authn.FromConfig(authn.AuthConfig{
+			Username: "robot$stove8s",
+			Password: "<change_me>",
+		})),
+	)
+	if err != nil {
+		slog.Error("Pushing to remote", "err", err)
+		status.State = Failed
+		return
+	}
+
+	status.State = Success
 }
 
 func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
-	var data createReq
+	var data CreateReq
 	err := json.NewDecoder(req.Body).Decode(&data)
 	if err != nil {
 		http.Error(rw, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -49,11 +90,7 @@ func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	rs.jobs[id] = OciStatus{
-		Stage: Fromating,
-		State: Idle,
-	}
-	go rs.CreateUnwrapped(id)
+	go rs.CreateUnwrapped(id, &data)
 
 	_, err = rw.Write(resp)
 	if err != nil {

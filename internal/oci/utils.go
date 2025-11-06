@@ -1,4 +1,4 @@
-package main
+package oci
 
 import (
 	"archive/tar"
@@ -12,14 +12,10 @@ import (
 	"time"
 
 	"bud.studio/stove8s/internal/version"
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/compression"
-	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -43,37 +39,7 @@ type ContainerConfig struct {
 	Restored        bool      `json:"restored"`
 }
 
-func main() {
-	idx, err := ociBuild("/home/sinan/c.tar")
-	if err != nil {
-		log.Fatal("Building oci image: ", err)
-		return
-	}
-
-	ref, err := name.ParseReference("harbor.bud.studio/stove8s/test:latest")
-	if err != nil {
-		log.Fatalln("Creating reference", err)
-	}
-
-	err = remote.WriteIndex(
-		ref,
-		idx,
-		remote.WithAuth(authn.FromConfig(authn.AuthConfig{
-			Username: "robot$stove8s",
-			Password: "<change_me>",
-		})),
-	)
-	if err != nil {
-		log.Fatalln("Pushing to remote", err)
-	}
-
-	_, err = layout.Write("/home/sinan/img.tar", idx)
-	if err != nil {
-		log.Fatalln("Creating reference", err)
-	}
-}
-
-func ociBuild(checkpointDumpPath string) (v1.ImageIndex, error) {
+func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
 	checkpointDump, err := os.Open(checkpointDumpPath)
 	if err != nil {
 		return nil, err
