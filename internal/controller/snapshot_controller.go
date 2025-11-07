@@ -90,7 +90,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	controllerutil.SetControllerReference(snapshot, pod, r.Scheme)
 
 	snapshot.Status.Stage = stove8sv1beta1.CriuDumping
-	// checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
+	checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
 	_, err = r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
 	if err != nil {
 		if requeue {

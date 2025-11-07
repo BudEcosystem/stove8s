@@ -7,22 +7,27 @@ import (
 
 	"bud.studio/stove8s/internal/oci"
 	"github.com/go-playground/validator/v10"
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/uuid"
 )
 
+type CreateReqImagePushSecret struct {
+	Name      string `json:"name" validate:"required"`
+	Namespace string `json:"namespace" validate:"required"`
+}
+
 type CreateReq struct {
-	CheckpointDumpPath string `json:"checkpoint_dump_path" validate:"required,filepath"`
-	ImageReference     string `json:"image_reference"`
+	CheckpointDumpPath string                   `json:"checkpoint_dump_path" validate:"required,filepath"`
+	ImagePushSecret    CreateReqImagePushSecret `json:"image_push_secret" validate:"required"`
+	ImageReference     string                   `json:"image_reference" validate:"required"`
 }
 
 type createResp struct {
 	JobId string `json:"job_id"`
 }
 
-func (rs OciResource) CreateUnwrapped(id uuid.UUID, data *CreateReq) {
+func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	status := OciStatus{
 		Stage: Fromating,
 		State: Started,
@@ -44,13 +49,21 @@ func (rs OciResource) CreateUnwrapped(id uuid.UUID, data *CreateReq) {
 
 	status.Stage = Pushing
 	status.State = Started
+
+	auth, err := rs.k8sImagePushSecretGet(
+		data.ImagePushSecret.Name,
+		data.ImagePushSecret.Namespace,
+		ref.Context().RegistryStr(),
+	)
+	if err != nil {
+		slog.Error("Getting image push secret", "err", err)
+		status.State = Failed
+		return
+	}
 	err = remote.WriteIndex(
 		ref,
 		idx,
-		remote.WithAuth(authn.FromConfig(authn.AuthConfig{
-			Username: "robot$stove8s",
-			Password: "<change_me>",
-		})),
+		remote.WithAuth(auth),
 	)
 	if err != nil {
 		slog.Error("Pushing to remote", "err", err)
@@ -90,7 +103,7 @@ func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	go rs.CreateUnwrapped(id, &data)
+	go rs.CreateAsync(id, &data)
 
 	_, err = rw.Write(resp)
 	if err != nil {
@@ -98,4 +111,6 @@ func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+
+	return
 }

@@ -10,7 +10,7 @@ import (
 )
 
 type listResp struct {
-	Jobs map[uuid.UUID]OciStatus `json:"jobs"`
+	Jobs map[uuid.UUID]*OciStatus `json:"jobs"`
 }
 
 func (rs OciResource) List(rw http.ResponseWriter, req *http.Request) {
