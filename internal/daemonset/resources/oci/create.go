@@ -105,6 +105,7 @@ func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
 
 	go rs.CreateAsync(id, &data)
 
+	rw.WriteHeader(http.StatusCreated)
 	_, err = rw.Write(resp)
 	if err != nil {
 		slog.Error("Writing response", "err", err.Error())

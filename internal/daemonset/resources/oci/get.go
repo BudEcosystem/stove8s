@@ -30,7 +30,7 @@ func (rs OciResource) List(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (rs OciResource) Get(rw http.ResponseWriter, req *http.Request) {
-	idString := chi.URLParam(req, "id")
+	idString := chi.URLParam(req, "job_id")
 	if idString == "" {
 		http.Error(rw, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -42,7 +42,7 @@ func (rs OciResource) Get(rw http.ResponseWriter, req *http.Request) {
 	}
 	job, ok := rs.jobs[id]
 	if !ok {
-		http.Error(rw, http.StatusText(http.StatusBadRequest), http.StatusNotFound)
+		http.Error(rw, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 

@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"slices"
 
@@ -157,10 +158,10 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if snapshot.Status.JobID != "" {
-		jobId, err := daemonsetPass(
+		jobId, err := daemonsetInit(
 			snapshot.Spec.Output.ContainerRegistry,
 			snapshot.Status.CheckPointNodePath,
-			snapshot.Status.Node.Addr,
+			snapshot.Status.Node,
 		)
 		if err != nil {
 			log.Error(err, "unable init daemonset job")
@@ -173,13 +174,57 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	ociStatus, err := daemonsetStausFetch(snapshot.Status.JobID, snapshot.Status.Node)
+	if err != nil {
+		log.Error(err, "unable fetch daemonset job status")
+		return ctrl.Result{}, err
+	}
+	snapshot.Status.Stage = stove8sv1beta1.SnapShotStatusStage(ociStatus.Stage)
+	snapshot.Status.State = stove8sv1beta1.SnapShotStatusState(ociStatus.State)
+	if err := r.Status().Update(ctx, snapshot); err != nil {
+		log.Error(err, "unable to update Snapshot status")
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
+func daemonsetStausFetch(
+	jobId string,
+	node stove8sv1beta1.SnapShotStatusNode,
+) (*oci.OciStatus, error) {
+	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", node.Addr, node.DeamonsetPort)
+	req, err := http.NewRequest(http.MethodGet, ociEndpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	query := req.URL.Query()
+	query.Add("job_id", jobId)
+	req.URL.RawQuery = query.Encode()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Body.Close()
 
-func daemonsetPass(
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	var ociStatus oci.OciStatus
+	if err := json.Unmarshal(body, &ociStatus); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	return &ociStatus, nil
+}
+
+func daemonsetInit(
 	output stove8sv1beta1.SnapShotOutputContainerRegistry,
 	checkPointNodePath string,
-	nodeAddr string,
+	node stove8sv1beta1.SnapShotStatusNode,
 ) (string, error) {
 	data := oci.CreateReq{
 		CheckpointDumpPath: checkPointNodePath,
@@ -194,7 +239,7 @@ func daemonsetPass(
 		return "", err
 	}
 
-	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", nodeAddr, daemonsetNodePort)
+	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", node.Addr, node.DeamonsetPort)
 	req, err := http.NewRequest(http.MethodPost, ociEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", err
