@@ -42,20 +42,20 @@ type OciResource struct {
 }
 
 func k8sClientInit() (*kubernetes.Clientset, error) {
-	config, err := rest.InClusterConfig()
+	k8sConfig, err := rest.InClusterConfig()
 	if err != nil {
 		kubeconfig := os.Getenv("HOME") + "/.kube/config"
 		if kubeconfigPath := os.Getenv("KUBECONFIG"); kubeconfigPath != "" {
 			kubeconfig = kubeconfigPath
 		}
 
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		k8sConfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build config: %w", err)
 		}
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(k8sConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create clientset: %w", err)
 	}

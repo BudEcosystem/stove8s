@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"slices"
 
@@ -92,7 +91,11 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 	}
-	controllerutil.SetControllerReference(snapshot, pod, r.Scheme)
+	err = controllerutil.SetControllerReference(snapshot, pod, r.Scheme)
+	if err != nil {
+		log.Error(err, "unable to set controller reference")
+		return ctrl.Result{}, err
+	}
 
 	containerIdx := slices.IndexFunc(pod.Spec.Containers, func(container corev1.Container) bool {
 		return container.Name == snapshot.Spec.Selector.Container
@@ -188,6 +191,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	return ctrl.Result{}, nil
 }
+
 func daemonsetStausFetch(
 	jobId string,
 	node stove8sv1beta1.SnapShotStatusNode,
@@ -204,7 +208,10 @@ func daemonsetStausFetch(
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	err = resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -249,7 +256,10 @@ func daemonsetInit(
 	if err != nil {
 		return "", err
 	}
-	resp.Body.Close()
+	err = resp.Body.Close()
+	if err != nil {
+		return "", err
+	}
 
 	if resp.StatusCode != http.StatusCreated {
 		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
