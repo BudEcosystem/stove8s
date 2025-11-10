@@ -106,12 +106,20 @@ const (
 	Success SnapShotStatusState = "Success"
 )
 
+type SnapShotStatusNode struct {
+	Name                 string `json:"name"`
+	Addr                 string `json:"addr"`
+	Stove8sDeamonsetPort int32  `json:"stove8s_deamonset_port"`
+}
+
 // SnapShotStatus defines the observed state of SnapShot.
 type SnapShotStatus struct {
 	// +kubebuilder:default:=Fromating
 	Stage SnapShotStatusStage `json:"stage"`
 	// +kubebuilder:default:=Idle
 	State SnapShotStatusState `json:"state"`
+
+	Node SnapShotStatusNode `json:"node"`
 }
 
 // +kubebuilder:object:root=true

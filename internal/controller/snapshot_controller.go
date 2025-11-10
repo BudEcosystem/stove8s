@@ -44,7 +44,7 @@ import (
 
 const (
 	podCaCertPath     = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	daemonsetEndpoint = "http://stove8s-daemonset"
+	daemonsetNodePort = "80085"
 )
 
 // SnapShotReconciler reconciles a SnapShot object
@@ -151,7 +151,7 @@ func daemonsetPass(checkPointNodePath, secretName, secretNamespace, imageReferen
 		return "", err
 	}
 
-	ociEndpoint := fmt.Sprintf("%s/oci", daemonsetEndpoint)
+	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", daemonsetEndpoint)
 	req, err := http.NewRequest(http.MethodPost, ociEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", err
@@ -178,36 +178,34 @@ func daemonsetPass(checkPointNodePath, secretName, secretNamespace, imageReferen
 	return createResp.JobId, nil
 }
 
-func (r *SnapShotReconciler) kubeletEndpointFromPod(ctx context.Context, pod *corev1.Pod) (string, error) {
+func (r *SnapShotReconciler) kubeletEndpointFromPod(ctx context.Context, pod *corev1.Pod) (string, int32, error) {
 	node := corev1.Node{}
 
 	err := r.Get(ctx, apitypes.NamespacedName{Name: pod.Spec.NodeName}, &node)
 	if err != nil {
-		return "", fmt.Errorf("failed to get node: %v", err)
+		return "", -1, fmt.Errorf("failed to get node: %v", err)
 	}
 	idx := slices.IndexFunc(node.Status.Addresses, func(addr corev1.NodeAddress) bool {
 		return addr.Type == corev1.NodeInternalIP
 	})
 	if idx < 0 {
-		return "", fmt.Errorf("fo internaIP for node: %v", node.Name)
+		return "", -1, fmt.Errorf("fo internaIP for node: %v", node.Name)
 	}
 
-	return fmt.Sprintf(
-		"https://%v:%v",
-		node.Status.Addresses[idx].Address,
-		node.Status.DaemonEndpoints.KubeletEndpoint,
-	), nil
+	addr := node.Status.Addresses[idx].Address
+	port := node.Status.DaemonEndpoints.KubeletEndpoint.Port
+	return addr, port, nil
 }
 
 func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {
-	kubeletEndpoint, err := r.kubeletEndpointFromPod(ctx, pod)
+	nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
 	if err != nil {
 		return "", fmt.Errorf("failed to kubelet endpoint: %v", err)
 	}
-
 	url := fmt.Sprintf(
-		"%v/checkpoint/%v/%v/%v",
-		kubeletEndpoint,
+		"http://%v:%v/checkpoint/%v/%v/%v",
+		nodeAddr,
+		kubeletPort,
 		pod.Namespace,
 		pod.Name,
 		containerName,
@@ -237,7 +235,11 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	return cr.Items[0], nil
 }
 
-func (r *SnapShotReconciler) podFromObjectRef(ctx context.Context, obj stove8sv1beta1.ObjectReference, snapShotNamespace string) (*corev1.Pod, bool, error) {
+func (r *SnapShotReconciler) podFromObjectRef(
+	ctx context.Context,
+	obj stove8sv1beta1.ObjectReference,
+	snapShotNamespace string,
+) (*corev1.Pod, bool, error) {
 	log := logf.FromContext(ctx)
 	pod := &corev1.Pod{}
 	var namespacedName apitypes.NamespacedName

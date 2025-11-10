@@ -103,11 +103,28 @@ spec:
           status:
             description: status defines the observed state of SnapShot
             properties:
+              node:
+                properties:
+                  addr:
+                    type: string
+                  name:
+                    type: string
+                  stove8s_deamonset_port:
+                    format: int32
+                    type: integer
+                required:
+                - addr
+                - name
+                - stove8s_deamonset_port
+                type: object
               stage:
+                default: Fromating
                 type: string
               state:
+                default: Idle
                 type: string
             required:
+            - node
             - stage
             - state
             type: object
