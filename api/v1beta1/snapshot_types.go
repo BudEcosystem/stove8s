@@ -107,9 +107,10 @@ const (
 )
 
 type SnapShotStatusNode struct {
-	Name                 string `json:"name"`
-	Addr                 string `json:"addr"`
-	Stove8sDeamonsetPort int32  `json:"stove8s_deamonset_port"`
+	Name          string `json:"name"`
+	Addr          string `json:"addr"`
+	DeamonsetPort int32  `json:"deamonset_port"`
+	KubeletPort   int32  `json:"kubelet_port"`
 }
 
 // SnapShotStatus defines the observed state of SnapShot.

@@ -44,7 +44,7 @@ import (
 
 const (
 	podCaCertPath     = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	daemonsetNodePort = "80085"
+	daemonsetNodePort = 80085
 )
 
 // SnapShotReconciler reconciles a SnapShot object
@@ -123,6 +123,25 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Error(err, "unable to update Snapshot status")
 		return ctrl.Result{}, err
 	}
+	nodeName, nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
+	if err != nil {
+		snapshot.Status.State = stove8sv1beta1.Failed
+		log.Error(err, "unable to get kubelet endpoint for pod")
+		if err := r.Status().Update(ctx, snapshot); err != nil {
+			log.Error(err, "unable to update Snapshot status")
+		}
+		return ctrl.Result{}, err
+	}
+	snapshot.Status.Node = stove8sv1beta1.SnapShotStatusNode{
+		Name:          nodeName,
+		Addr:          nodeAddr,
+		DeamonsetPort: daemonsetNodePort,
+		KubeletPort:   kubeletPort,
+	}
+	if err := r.Status().Update(ctx, snapshot); err != nil {
+		log.Error(err, "unable to update Snapshot status")
+		return ctrl.Result{}, err
+	}
 
 	checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
 	if err != nil {
@@ -178,27 +197,28 @@ func daemonsetPass(checkPointNodePath, secretName, secretNamespace, imageReferen
 	return createResp.JobId, nil
 }
 
-func (r *SnapShotReconciler) kubeletEndpointFromPod(ctx context.Context, pod *corev1.Pod) (string, int32, error) {
+func (r *SnapShotReconciler) kubeletEndpointFromPod(ctx context.Context, pod *corev1.Pod) (string, string, int32, error) {
 	node := corev1.Node{}
 
 	err := r.Get(ctx, apitypes.NamespacedName{Name: pod.Spec.NodeName}, &node)
 	if err != nil {
-		return "", -1, fmt.Errorf("failed to get node: %v", err)
+		return "", "", -1, fmt.Errorf("failed to get node: %v", err)
 	}
 	idx := slices.IndexFunc(node.Status.Addresses, func(addr corev1.NodeAddress) bool {
 		return addr.Type == corev1.NodeInternalIP
 	})
 	if idx < 0 {
-		return "", -1, fmt.Errorf("fo internaIP for node: %v", node.Name)
+		return "", "", -1, fmt.Errorf("fo internaIP for node: %v", node.Name)
 	}
 
+	name := node.Name
 	addr := node.Status.Addresses[idx].Address
 	port := node.Status.DaemonEndpoints.KubeletEndpoint.Port
-	return addr, port, nil
+	return name, addr, port, nil
 }
 
 func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {
-	nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
+	_, nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
 	if err != nil {
 		return "", fmt.Errorf("failed to kubelet endpoint: %v", err)
 	}

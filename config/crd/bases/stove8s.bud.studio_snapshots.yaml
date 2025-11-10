@@ -107,15 +107,19 @@ spec:
                 properties:
                   addr:
                     type: string
-                  name:
-                    type: string
-                  stove8s_deamonset_port:
+                  deamonset_port:
                     format: int32
                     type: integer
+                  kubelet_port:
+                    format: int32
+                    type: integer
+                  name:
+                    type: string
                 required:
                 - addr
+                - deamonset_port
+                - kubelet_port
                 - name
-                - stove8s_deamonset_port
                 type: object
               stage:
                 default: Fromating
