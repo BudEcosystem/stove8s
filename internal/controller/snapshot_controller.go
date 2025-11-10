@@ -115,21 +115,9 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	// NOTE: stateless till here
-
-	snapshot.Status.Stage = stove8sv1beta1.CriuDumping
-	snapshot.Status.State = stove8sv1beta1.Started
-	if err := r.Status().Update(ctx, snapshot); err != nil {
-		log.Error(err, "unable to update Snapshot status")
-		return ctrl.Result{}, err
-	}
 	nodeName, nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
 	if err != nil {
-		snapshot.Status.State = stove8sv1beta1.Failed
 		log.Error(err, "unable to get kubelet endpoint for pod")
-		if err := r.Status().Update(ctx, snapshot); err != nil {
-			log.Error(err, "unable to update Snapshot status")
-		}
 		return ctrl.Result{}, err
 	}
 	snapshot.Status.Node = stove8sv1beta1.SnapShotStatusNode{
@@ -138,6 +126,15 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		DeamonsetPort: daemonsetNodePort,
 		KubeletPort:   kubeletPort,
 	}
+	if err := r.Status().Update(ctx, snapshot); err != nil {
+		log.Error(err, "unable to update Snapshot status")
+		return ctrl.Result{}, err
+	}
+
+	// NOTE: stateless till here
+
+	snapshot.Status.Stage = stove8sv1beta1.CriuDumping
+	snapshot.Status.State = stove8sv1beta1.Started
 	if err := r.Status().Update(ctx, snapshot); err != nil {
 		log.Error(err, "unable to update Snapshot status")
 		return ctrl.Result{}, err
