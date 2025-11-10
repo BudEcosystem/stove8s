@@ -23,7 +23,7 @@ type CreateReq struct {
 	ImageReference     string                   `json:"image_reference" validate:"required"`
 }
 
-type createResp struct {
+type CreateResp struct {
 	JobId string `json:"job_id"`
 }
 
@@ -94,7 +94,7 @@ func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := json.Marshal(createResp{
+	resp, err := json.Marshal(CreateResp{
 		JobId: id.String(),
 	})
 	if err != nil {
@@ -111,6 +111,4 @@ func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
-	return
 }

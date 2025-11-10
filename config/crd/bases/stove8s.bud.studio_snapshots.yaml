@@ -41,8 +41,6 @@ spec:
             properties:
               input:
                 properties:
-                  after:
-                    type: string
                   delay:
                     description: |-
                       A Duration represents the elapsed time between two instants
@@ -53,7 +51,6 @@ spec:
                   policy:
                     type: string
                 required:
-                - after
                 - delay
                 - policy
                 type: object
@@ -61,15 +58,19 @@ spec:
                 properties:
                   containerRegistry:
                     properties:
+                      image_reference:
+                        type: string
                       imagePushSecret:
-                        type: string
-                      repository:
-                        type: string
-                      tag:
-                        type: string
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - name
+                        type: object
                     required:
-                    - repository
-                    - tag
+                    - image_reference
                     type: object
                 required:
                 - containerRegistry

@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -38,9 +39,13 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
+	"bud.studio/stove8s/internal/daemonset/resources/oci"
 )
 
-const podCaCertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+const (
+	podCaCertPath     = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	daemonsetEndpoint = "http://stove8s-daemonset"
+)
 
 // SnapShotReconciler reconciles a SnapShot object
 type SnapShotReconciler struct {
@@ -71,11 +76,11 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
 			// In this way, we will stop the reconciliation
-			log.Info("snapshot resource not found. Ignoring since object must be deleted")
+			log.Info("Snapshot resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		log.Error(err, "Failed to get snapshot")
+		log.Error(err, "failed to get snapshot")
 		return ctrl.Result{}, err
 	}
 
@@ -89,84 +94,144 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	controllerutil.SetControllerReference(snapshot, pod, r.Scheme)
 
+	containerIdx := slices.IndexFunc(pod.Spec.Containers, func(container corev1.Container) bool {
+		return container.Name == snapshot.Spec.Selector.Container
+	})
+	if containerIdx == -1 {
+		log.Info("Container not found in Pod", "container", snapshot.Spec.Selector.Container)
+		return ctrl.Result{}, nil
+	}
+
+	if pod.Spec.Containers[containerIdx].Image == snapshot.Spec.Output.ContainerRegistry.ImageReference {
+		// pod already running snapshot image
+		return ctrl.Result{}, nil
+	}
+
+	readyIdx := slices.IndexFunc(pod.Status.Conditions, func(condition corev1.PodCondition) bool {
+		return condition.Type == corev1.PodReady
+	})
+	if readyIdx == -1 || pod.Status.Conditions[readyIdx].Status != corev1.ConditionTrue {
+		log.Info("Pod not in ready status, waiting for events", "Pod", pod.Name)
+		return ctrl.Result{}, nil
+	}
+
+	// NOTE: stateless till here
+
 	snapshot.Status.Stage = stove8sv1beta1.CriuDumping
+	snapshot.Status.State = stove8sv1beta1.Started
+	if err := r.Status().Update(ctx, snapshot); err != nil {
+		log.Error(err, "unable to update Snapshot status")
+		return ctrl.Result{}, err
+	}
+
 	checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
-	_, err = r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
 	if err != nil {
-		if requeue {
-			return ctrl.Result{}, nil
-		} else {
-			return ctrl.Result{}, err
+		snapshot.Status.State = stove8sv1beta1.Failed
+		if err := r.Status().Update(ctx, snapshot); err != nil {
+			log.Error(err, "unable to update Snapshot status")
 		}
+
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {
-	log := logf.FromContext(ctx)
-
-	idx := slices.IndexFunc(pod.Spec.Containers, func(container corev1.Container) bool {
-		return container.Name == containerName
-	})
-	if idx < 0 {
-		err := errors.New("no such container")
-		log.Error(err, containerName)
+func daemonsetPass(checkPointNodePath, secretName, secretNamespace, imageReference string) (string, error) {
+	data := oci.CreateReq{
+		CheckpointDumpPath: checkPointNodePath,
+		ImagePushSecret: oci.CreateReqImagePushSecret{
+			Name:      secretName,
+			Namespace: secretNamespace,
+		},
+		ImageReference: imageReference,
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
 		return "", err
 	}
 
+	ociEndpoint := fmt.Sprintf("%s/oci", daemonsetEndpoint)
+	req, err := http.NewRequest(http.MethodPost, ociEndpoint, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+	var createResp oci.CreateResp
+	if err := json.Unmarshal(body, &createResp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	return createResp.JobId, nil
+}
+
+func (r *SnapShotReconciler) kubeletEndpointFromPod(ctx context.Context, pod *corev1.Pod) (string, error) {
 	node := corev1.Node{}
+
 	err := r.Get(ctx, apitypes.NamespacedName{Name: pod.Spec.NodeName}, &node)
 	if err != nil {
-		log.Error(err, "Failed to get node")
-		return "", err
+		return "", fmt.Errorf("failed to get node: %v", err)
 	}
-
-	idx = slices.IndexFunc(node.Status.Addresses, func(addr corev1.NodeAddress) bool {
+	idx := slices.IndexFunc(node.Status.Addresses, func(addr corev1.NodeAddress) bool {
 		return addr.Type == corev1.NodeInternalIP
 	})
 	if idx < 0 {
-		err := errors.New("no internaIP for node")
-		log.Error(err, node.Name)
-		return "", err
+		return "", fmt.Errorf("fo internaIP for node: %v", node.Name)
+	}
+
+	return fmt.Sprintf(
+		"https://%v:%v",
+		node.Status.Addresses[idx].Address,
+		node.Status.DaemonEndpoints.KubeletEndpoint,
+	), nil
+}
+
+func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {
+	kubeletEndpoint, err := r.kubeletEndpointFromPod(ctx, pod)
+	if err != nil {
+		return "", fmt.Errorf("failed to kubelet endpoint: %v", err)
 	}
 
 	url := fmt.Sprintf(
-		"https://%v:%v/checkpoint/%v/%v/%v",
-		node.Status.Addresses[idx].Address,
-		node.Status.DaemonEndpoints.KubeletEndpoint,
+		"%v/checkpoint/%v/%v/%v",
+		kubeletEndpoint,
 		pod.Namespace,
 		pod.Name,
 		containerName,
 	)
 	checkpointReq, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		log.Error(err, "Creating http request object")
-		return "", err
+		return "", fmt.Errorf("creating http request object: %v", err)
 	}
 	resp, err := r.kubeletClient.Do(checkpointReq)
 	if err != nil {
-		log.Error(err, "Checkpoint request failed")
-		return "", err
+		return "", fmt.Errorf("checkpoint request failed: %v", err)
 	}
 
 	var cr CheckPointResp
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Error(err, "Reading response body")
-		return "", err
+		return "", fmt.Errorf("reading response body: %v", err)
 	}
-
 	err = json.Unmarshal(body, &cr)
 	if err != nil {
-		log.Error(err, "Unmarsheling response")
-		return "", err
+		return "", fmt.Errorf("unmarsheling response: %v", err)
 	}
-
 	if len(cr.Items) != 1 {
-		err := errors.New("unexpected output, ooga booga")
-		log.Error(err, node.Name)
-		return "", err
+		return "", errors.New("unexpected output")
 	}
 
 	return cr.Items[0], nil

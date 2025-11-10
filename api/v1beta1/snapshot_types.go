@@ -34,6 +34,13 @@ type ObjectReference struct {
 	Name string `json:"name"`
 }
 
+type KindReference struct {
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// +required
+	Name string `json:"name"`
+}
+
 type SnapShotSelector struct {
 	// +required
 	Object ObjectReference `json:"object"`
@@ -48,8 +55,6 @@ const IfNotPresent SnapShotInputPolicy = "IfNotPresent"
 
 type SnapShotInput struct {
 	// +required
-	After string `json:"after"`
-	// +required
 	Delay time.Duration `json:"delay"`
 	// +required
 	Policy SnapShotInputPolicy `json:"policy"`
@@ -59,11 +64,9 @@ type SnapShotInput struct {
 
 type SnapShotOutputContainerRegistry struct {
 	// +optional
-	ImagePushSecret string `json:"imagePushSecret"`
+	ImagePushSecret KindReference `json:"imagePushSecret"`
 	// +required
-	Repository string `json:"repository"`
-	// +required
-	Tag string `json:"tag"`
+	ImageReference string `json:"image_reference"`
 }
 
 type SnapShotOutput struct {
@@ -105,7 +108,9 @@ const (
 
 // SnapShotStatus defines the observed state of SnapShot.
 type SnapShotStatus struct {
+	// +kubebuilder:default:=Fromating
 	Stage SnapShotStatusStage `json:"stage"`
+	// +kubebuilder:default:=Idle
 	State SnapShotStatusState `json:"state"`
 }
 
