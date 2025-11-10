@@ -120,7 +120,8 @@ type SnapShotStatus struct {
 	// +kubebuilder:default:=Idle
 	State SnapShotStatusState `json:"state"`
 
-	Node SnapShotStatusNode `json:"node"`
+	Node               SnapShotStatusNode `json:"node"`
+	CheckPointNodePath string             `json:"checkpoint_node_path"`
 }
 
 // +kubebuilder:object:root=true

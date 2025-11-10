@@ -75,7 +75,6 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the custom resource is not found then it usually means that it was deleted or not created
-			// In this way, we will stop the reconciliation
 			log.Info("Snapshot resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
@@ -101,7 +100,6 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Info("Container not found in Pod", "container", snapshot.Spec.Selector.Container)
 		return ctrl.Result{}, nil
 	}
-
 	if pod.Spec.Containers[containerIdx].Image == snapshot.Spec.Output.ContainerRegistry.ImageReference {
 		// pod already running snapshot image
 		return ctrl.Result{}, nil
@@ -115,22 +113,6 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	nodeName, nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
-	if err != nil {
-		log.Error(err, "unable to get kubelet endpoint for pod")
-		return ctrl.Result{}, err
-	}
-	snapshot.Status.Node = stove8sv1beta1.SnapShotStatusNode{
-		Name:          nodeName,
-		Addr:          nodeAddr,
-		DeamonsetPort: daemonsetNodePort,
-		KubeletPort:   kubeletPort,
-	}
-	if err := r.Status().Update(ctx, snapshot); err != nil {
-		log.Error(err, "unable to update Snapshot status")
-		return ctrl.Result{}, err
-	}
-
 	// NOTE: stateless till here
 
 	snapshot.Status.Stage = stove8sv1beta1.CriuDumping
@@ -140,13 +122,35 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	if snapshot.Status.Node == (stove8sv1beta1.SnapShotStatusNode{}) {
+		nodeName, nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
+		if err != nil {
+			log.Error(err, "unable to get kubelet endpoint for pod")
+			return ctrl.Result{}, err
+		}
+		snapshot.Status.Node = stove8sv1beta1.SnapShotStatusNode{
+			Name:          nodeName,
+			Addr:          nodeAddr,
+			DeamonsetPort: daemonsetNodePort,
+			KubeletPort:   kubeletPort,
+		}
+		if err := r.Status().Update(ctx, snapshot); err != nil {
+			log.Error(err, "unable to update Snapshot status")
+			return ctrl.Result{}, err
+		}
+	}
+
 	checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
 	if err != nil {
 		snapshot.Status.State = stove8sv1beta1.Failed
 		if err := r.Status().Update(ctx, snapshot); err != nil {
 			log.Error(err, "unable to update Snapshot status")
 		}
-
+		return ctrl.Result{}, err
+	}
+	snapshot.Status.CheckPointNodePath = checkPointNodePath
+	if err := r.Status().Update(ctx, snapshot); err != nil {
+		log.Error(err, "unable to update Snapshot status")
 		return ctrl.Result{}, err
 	}
 

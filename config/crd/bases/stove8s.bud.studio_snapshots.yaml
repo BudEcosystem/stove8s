@@ -103,6 +103,8 @@ spec:
           status:
             description: status defines the observed state of SnapShot
             properties:
+              checkpoint_node_path:
+                type: string
               node:
                 properties:
                   addr:
@@ -128,6 +130,7 @@ spec:
                 default: Idle
                 type: string
             required:
+            - checkpoint_node_path
             - node
             - stage
             - state
