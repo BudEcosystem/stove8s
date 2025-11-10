@@ -105,6 +105,8 @@ spec:
             properties:
               checkpoint_node_path:
                 type: string
+              job_id:
+                type: string
               node:
                 properties:
                   addr:
@@ -131,6 +133,7 @@ spec:
                 type: string
             required:
             - checkpoint_node_path
+            - job_id
             - node
             - stage
             - state

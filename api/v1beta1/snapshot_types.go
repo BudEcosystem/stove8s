@@ -122,6 +122,7 @@ type SnapShotStatus struct {
 
 	Node               SnapShotStatusNode `json:"node"`
 	CheckPointNodePath string             `json:"checkpoint_node_path"`
+	JobID              string             `json:"job_id"`
 }
 
 // +kubebuilder:object:root=true

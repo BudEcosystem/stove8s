@@ -140,38 +140,61 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
-	if err != nil {
-		snapshot.Status.State = stove8sv1beta1.Failed
+	if snapshot.Status.CheckPointNodePath != "" {
+		checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
+		if err != nil {
+			snapshot.Status.State = stove8sv1beta1.Failed
+			if err := r.Status().Update(ctx, snapshot); err != nil {
+				log.Error(err, "unable to update Snapshot status")
+			}
+			return ctrl.Result{}, err
+		}
+		snapshot.Status.CheckPointNodePath = checkPointNodePath
 		if err := r.Status().Update(ctx, snapshot); err != nil {
 			log.Error(err, "unable to update Snapshot status")
+			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, err
 	}
-	snapshot.Status.CheckPointNodePath = checkPointNodePath
-	if err := r.Status().Update(ctx, snapshot); err != nil {
-		log.Error(err, "unable to update Snapshot status")
-		return ctrl.Result{}, err
+
+	if snapshot.Status.JobID != "" {
+		jobId, err := daemonsetPass(
+			snapshot.Spec.Output.ContainerRegistry,
+			snapshot.Status.CheckPointNodePath,
+			snapshot.Status.Node.Addr,
+		)
+		if err != nil {
+			log.Error(err, "unable init daemonset job")
+			return ctrl.Result{}, err
+		}
+		snapshot.Status.JobID = jobId
+		if err := r.Status().Update(ctx, snapshot); err != nil {
+			log.Error(err, "unable to update Snapshot status")
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func daemonsetPass(checkPointNodePath, secretName, secretNamespace, imageReference string) (string, error) {
+func daemonsetPass(
+	output stove8sv1beta1.SnapShotOutputContainerRegistry,
+	checkPointNodePath string,
+	nodeAddr string,
+) (string, error) {
 	data := oci.CreateReq{
 		CheckpointDumpPath: checkPointNodePath,
 		ImagePushSecret: oci.CreateReqImagePushSecret{
-			Name:      secretName,
-			Namespace: secretNamespace,
+			Name:      output.ImagePushSecret.Name,
+			Namespace: output.ImagePushSecret.Namespace,
 		},
-		ImageReference: imageReference,
+		ImageReference: output.ImageReference,
 	}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return "", err
 	}
 
-	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", daemonsetEndpoint)
+	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", nodeAddr, daemonsetNodePort)
 	req, err := http.NewRequest(http.MethodPost, ociEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", err
