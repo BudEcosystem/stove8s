@@ -47,8 +47,6 @@ spec:
             properties:
               input:
                 properties:
-                  after:
-                    type: string
                   delay:
                     description: |-
                       A Duration represents the elapsed time between two instants
@@ -59,7 +57,6 @@ spec:
                   policy:
                     type: string
                 required:
-                - after
                 - delay
                 - policy
                 type: object
@@ -67,15 +64,19 @@ spec:
                 properties:
                   containerRegistry:
                     properties:
+                      image_reference:
+                        type: string
                       imagePushSecret:
-                        type: string
-                      repository:
-                        type: string
-                      tag:
-                        type: string
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - name
+                        type: object
                     required:
-                    - repository
-                    - tag
+                    - image_reference
                     type: object
                 required:
                 - containerRegistry
@@ -85,49 +86,17 @@ spec:
                   container:
                     type: string
                   object:
-                    description: ObjectReference contains enough information to let
-                      you inspect or modify the referred object.
                     properties:
-                      apiVersion:
-                        description: API version of the referent.
-                        type: string
-                      fieldPath:
-                        description: |-
-                          If referring to a piece of an object instead of an entire object, this string
-                          should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                          For example, if the object reference is to a container within a pod, this would take on a value like:
-                          "spec.containers{name}" (where "name" refers to the name of the container that triggered
-                          the event) or if no container name is specified "spec.containers[2]" (container with
-                          index 2 in this pod). This syntax is chosen only to have some well-defined way of
-                          referencing a part of an object.
-                        type: string
                       kind:
-                        description: |-
-                          Kind of the referent.
-                          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                         type: string
                       name:
-                        description: |-
-                          Name of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                         type: string
                       namespace:
-                        description: |-
-                          Namespace of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                         type: string
-                      resourceVersion:
-                        description: |-
-                          Specific resourceVersion to which this reference is made, if any.
-                          More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
-                        type: string
-                      uid:
-                        description: |-
-                          UID of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
-                        type: string
+                    required:
+                    - kind
+                    - name
                     type: object
-                    x-kubernetes-map-type: atomic
                 required:
                 - container
                 - object
@@ -140,11 +109,38 @@ spec:
           status:
             description: status defines the observed state of SnapShot
             properties:
+              checkpoint_node_path:
+                type: string
+              job_id:
+                type: string
+              node:
+                properties:
+                  addr:
+                    type: string
+                  deamonset_port:
+                    format: int32
+                    type: integer
+                  kubelet_port:
+                    format: int32
+                    type: integer
+                  name:
+                    type: string
+                required:
+                - addr
+                - deamonset_port
+                - kubelet_port
+                - name
+                type: object
               stage:
+                default: Fromating
                 type: string
               state:
+                default: Idle
                 type: string
             required:
+            - checkpoint_node_path
+            - job_id
+            - node
             - stage
             - state
             type: object
