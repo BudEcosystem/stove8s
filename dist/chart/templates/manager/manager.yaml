@@ -32,7 +32,7 @@ spec:
             - {{ . }}
             {{- end }}
           command:
-            - /manager
+            - /bin/controller
           image: {{ .Values.controllerManager.container.image.repository }}:{{ .Values.controllerManager.container.image.tag }}
           {{- if .Values.controllerManager.container.imagePullPolicy }}
           imagePullPolicy: {{ .Values.controllerManager.container.imagePullPolicy }}

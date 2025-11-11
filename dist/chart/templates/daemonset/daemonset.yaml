@@ -29,6 +29,8 @@ spec:
             {{- range .Values.daemonset.container.args }}
             - {{ . }}
             {{- end }}
+          command:
+            - /bin/daemonset
           image: {{ .Values.daemonset.container.image.repository }}:{{ .Values.daemonset.container.image.tag }}
           {{- if .Values.daemonset.container.imagePullPolicy }}
           imagePullPolicy: {{ .Values.daemonset.container.imagePullPolicy }}

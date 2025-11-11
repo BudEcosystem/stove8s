@@ -8,6 +8,16 @@ metadata:
   name: stove8s-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - stove8s.bud.studio
   resources:
   - snapshots

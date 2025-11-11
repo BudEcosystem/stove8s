@@ -5,7 +5,7 @@ controllerManager:
     image:
       repository: docker.io/budstudio/stove8s-controller
       tag: latest
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     args:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"
@@ -35,7 +35,8 @@ controllerManager:
         drop:
           - "ALL"
   securityContext:
-    runAsNonRoot: true
+    # Error: container has runAsNonRoot and image will run as root
+    # runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
   terminationGracePeriodSeconds: 10
@@ -81,7 +82,7 @@ daemonset:
     image:
       repository: docker.io/budstudio/stove8s-daemonset
       tag: latest
-    imagePullPolicy: IfNotPresent
+    imagePullPolicy: Always
     args:
       - "-port=80"
     resources:
@@ -109,7 +110,8 @@ daemonset:
         drop:
           - "ALL"
   securityContext:
-    runAsNonRoot: true
+    # Error: container has runAsNonRoot and image will run as root
+    # runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
   terminationGracePeriodSeconds: 10
