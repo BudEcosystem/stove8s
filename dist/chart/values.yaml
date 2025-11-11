@@ -96,13 +96,13 @@ daemonset:
       periodSeconds: 20
       httpGet:
         path: /healthz
-        port: 8081
+        port: 80
     readinessProbe:
       initialDelaySeconds: 5
       periodSeconds: 10
       httpGet:
-        path: /readyz
-        port: 8081
+        path: /healthz
+        port: 80
     securityContext:
       allowPrivilegeEscalation: false
       capabilities:

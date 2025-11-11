@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -37,6 +38,15 @@ func routerInit() (*chi.Mux, error) {
 		return nil, err
 	}
 	r.Mount("/oci", ociHandler)
+
+	r.HandleFunc("/healthz", func(rw http.ResponseWriter, req *http.Request) {
+		rw.Header().Set("Content-Type", "text/plain")
+		rw.WriteHeader(http.StatusOK)
+		_, err := rw.Write([]byte("OK"))
+		if err != nil {
+			slog.Error("Writing response", "err", err.Error())
+		}
+	})
 
 	return r, nil
 }
