@@ -221,6 +221,23 @@ golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
 
+
+.PHONY: pushd
+pushd:
+	nix build .#oci-stove8s-daemonset
+	docker load < result
+	docker tag budstudio/stove8s-daemonset:git budstudio/stove8s-daemonset:latest
+	docker push budstudio/stove8s-daemonset:latest
+	rm result
+
+.PHONY: pushc
+pushc:
+	nix build .#oci-stove8s-controller
+	docker load < result
+	docker tag budstudio/stove8s-controller:git budstudio/stove8s-controller:latest
+	docker push budstudio/stove8s-controller:latest
+	rm result
+
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
 # $2 - package url which can be installed
