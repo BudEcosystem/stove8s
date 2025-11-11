@@ -5,6 +5,7 @@
   gopls,
   nixfmt-rfc-style,
   markdownlint-cli,
+  helm-ls,
 
   kubebuilder,
   jq,
@@ -26,6 +27,7 @@ mkShell {
     kubernetes-controller-tools
     kubectl
     k3d
+    helm-ls
   ];
 
   shellHook = ''
