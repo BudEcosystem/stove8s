@@ -4,7 +4,7 @@
 }:
 
 buildGoModule (finalAttrs: {
-  pname = "stove8s";
+  pname = "stove8s-controller";
   version = "git";
 
   src = lib.cleanSourceWith {

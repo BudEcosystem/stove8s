@@ -23,16 +23,16 @@
           (forAllSystems (
             { system, pkgs }:
             {
-              stove8s = pkgs.callPackage ./nix/package.nix { };
-              default = self.packages.${system}.stove8s;
+              stove8s-controller = pkgs.callPackage ./nix/packages/controller.nix { };
+              default = self.packages.${system}.stove8s-controller;
             }
           ))
           (
             forLinuxSystems (
               { system, pkgs }:
               {
-                oci = pkgs.callPackage ./nix/oci.nix {
-                  stove8s = self.packages.${system}.stove8s;
+                oci-stove8s-controller = pkgs.callPackage ./nix/oci/controller.nix {
+                  stove8s-controller = self.packages.${system}.stove8s-controller;
                 };
               }
             )
@@ -42,7 +42,7 @@
         { system, pkgs }:
         {
           stove8s = pkgs.callPackage ./nix/shell.nix {
-            stove8s = self.packages.${system}.stove8s;
+            stove8s-controller = self.packages.${system}.stove8s-controller;
           };
           default = self.devShells.${system}.stove8s;
         }

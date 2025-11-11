@@ -1,6 +1,6 @@
 {
   mkShell,
-  stove8s,
+  stove8s-controller,
 
   gopls,
   nixfmt-rfc-style,
@@ -16,7 +16,9 @@
 }:
 
 mkShell {
-  inputsFrom = [ stove8s ];
+  inputsFrom = [
+    stove8s-controller
+  ];
 
   buildInputs = [
     jq
