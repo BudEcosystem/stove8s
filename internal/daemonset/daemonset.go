@@ -4,7 +4,10 @@ package daemonset
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +18,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
+
+type Config struct {
+	Host string `toml:"host"`
+	Port uint   `toml:"port"`
+}
 
 func routerInit() (*chi.Mux, error) {
 	r := chi.NewRouter()
@@ -33,7 +41,21 @@ func routerInit() (*chi.Mux, error) {
 	return r, nil
 }
 
+func configInit() *Config {
+	config := Config{
+		Host: "::",
+		Port: 8008,
+	}
+
+	flag.StringVar(&config.Host, "host", config.Host, "Bind host")
+	flag.UintVar(&config.Port, "port", config.Port, "Bind port")
+	flag.Parse()
+
+	return &config
+}
+
 func Run() {
+	config := configInit()
 	serverCtx, serverCtxCancel := context.WithCancel(context.Background())
 
 	router, err := routerInit()
@@ -42,7 +64,7 @@ func Run() {
 	}
 
 	srv := &http.Server{
-		Addr:         ":8008",
+		Addr:         net.JoinHostPort(config.Host, fmt.Sprint(config.Port)),
 		WriteTimeout: 4 * time.Second,
 		ReadTimeout:  4 * time.Second,
 		Handler:      router,
