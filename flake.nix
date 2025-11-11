@@ -23,7 +23,12 @@
           (forAllSystems (
             { system, pkgs }:
             {
-              stove8s-controller = pkgs.callPackage ./nix/packages/controller.nix { };
+              stove8s-controller = pkgs.callPackage ./nix/package.nix {
+                subPackage = "controller";
+              };
+              stove8s-daemonset = pkgs.callPackage ./nix/package.nix {
+                subPackage = "daemonset";
+              };
               default = self.packages.${system}.stove8s-controller;
             }
           ))
@@ -33,6 +38,9 @@
               {
                 oci-stove8s-controller = pkgs.callPackage ./nix/oci/controller.nix {
                   stove8s-controller = self.packages.${system}.stove8s-controller;
+                };
+                oci-stove8s-daemonset = pkgs.callPackage ./nix/oci/daemonset.nix {
+                  stove8s-daemonset = self.packages.${system}.stove8s-daemonset;
                 };
               }
             )

@@ -1,10 +1,11 @@
 {
   lib,
   buildGoModule,
+  subPackage ? "controller",
 }:
 
 buildGoModule (finalAttrs: {
-  pname = "stove8s-controller";
+  pname = "stove8s";
   version = "git";
 
   src = lib.cleanSourceWith {
@@ -17,8 +18,8 @@ buildGoModule (finalAttrs: {
       ]);
     src = ../.;
   };
-
-  vendorHash = "sha256-CzE9/IX5TAkGssejfX9/oJOnSOOvsb815gEcTFwdOMM=";
+  vendorHash = "sha256-D3sMx3wRO4Qjk+vKLLxdOlUWngJ0y/zWG9Ne6GDrTvQ=";
+  subPackages = [ "./cmd/${subPackage}" ];
 
   # TODO: fix me
   doCheck = false;
@@ -26,7 +27,7 @@ buildGoModule (finalAttrs: {
   meta = {
     platforms = lib.platforms.unix;
     license = lib.licenses.agpl3Plus;
-    mainProgram = "stove8s";
+    mainProgram = subPackage;
     maintainers = with lib.maintainers; [ sinanmohd ];
   };
 })
