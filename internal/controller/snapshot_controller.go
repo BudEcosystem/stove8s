@@ -69,6 +69,8 @@ type CheckPointResp struct {
 
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
+// NOTE: breaking down the Reconcile() function furhter will reduce the readability
+// nolint: gocyclo
 func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
@@ -119,24 +121,24 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			log.Error(err, "unable to swap the container image")
 		}
 		return ctrl.Result{}, err
-	} else {
-		valid, err := oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference)
+	}
+
+	valid, err := oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference)
+	if err != nil {
+		log.Error(err, "unable to check output image existence")
+		return ctrl.Result{}, err
+	}
+	if valid {
+		snapshot.Status.OutPutReferenceIsValid = true
+		if err := r.Status().Update(ctx, snapshot); err != nil {
+			log.Error(err, "unable to update Snapshot status")
+			return ctrl.Result{}, err
+		}
+		err := r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
 		if err != nil {
-			log.Error(err, "unable to check output image existence")
-			return ctrl.Result{}, err
+			log.Error(err, "unable to swap the container image")
 		}
-		if valid {
-			snapshot.Status.OutPutReferenceIsValid = true
-			if err := r.Status().Update(ctx, snapshot); err != nil {
-				log.Error(err, "unable to update Snapshot status")
-				return ctrl.Result{}, err
-			}
-			err := r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
-			if err != nil {
-				log.Error(err, "unable to swap the container image")
-			}
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, err
 	}
 
 	readyIdx := slices.IndexFunc(pod.Status.Conditions, func(condition corev1.PodCondition) bool {
@@ -218,22 +220,29 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 	}
+	if snapshot.Status.Stage != stove8sv1beta1.Pushing || snapshot.Status.State != stove8sv1beta1.Success {
+		return ctrl.Result{}, nil
+	}
 
-	valid, err := oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference)
+	valid, err = oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference)
 	if err != nil {
 		log.Error(err, "unable to check output image existence")
 		return ctrl.Result{}, err
 	}
-	if valid {
-		snapshot.Status.OutPutReferenceIsValid = true
-		if err := r.Status().Update(ctx, snapshot); err != nil {
-			log.Error(err, "unable to update Snapshot status")
-			return ctrl.Result{}, err
-		}
-		err := r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
-		if err != nil {
-			log.Error(err, "unable to swap the container image")
-		}
+	if !valid {
+		err := errors.New("invalid reference")
+		log.Error(err, "image push is not reflected in container registry")
+		return ctrl.Result{}, err
+	}
+
+	snapshot.Status.OutPutReferenceIsValid = true
+	if err := r.Status().Update(ctx, snapshot); err != nil {
+		log.Error(err, "unable to update Snapshot status")
+		return ctrl.Result{}, err
+	}
+	err = r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
+	if err != nil {
+		log.Error(err, "unable to swap the container image")
 		return ctrl.Result{}, err
 	}
 
