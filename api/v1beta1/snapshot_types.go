@@ -120,9 +120,10 @@ type SnapShotStatus struct {
 	// +kubebuilder:default:=Idle
 	State SnapShotStatusState `json:"state"`
 
-	Node               SnapShotStatusNode `json:"node"`
-	CheckPointNodePath string             `json:"checkpoint_node_path"`
-	JobID              string             `json:"job_id"`
+	Node                   SnapShotStatusNode `json:"node"`
+	CheckPointNodePath     string             `json:"checkpoint_node_path"`
+	JobID                  string             `json:"job_id"`
+	OutPutReferenceIsValid bool               `json:"output_reference_is_valid"`
 }
 
 // +kubebuilder:object:root=true

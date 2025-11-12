@@ -9,13 +9,16 @@ import (
 	"os"
 	"runtime"
 	"slices"
+	"strings"
 	"time"
 
 	"bud.studio/stove8s/internal/version"
 	"github.com/google/go-containerregistry/pkg/compression"
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -160,6 +163,25 @@ func dumpInspect(checkpointDump io.Reader) (*specs.Spec, *ContainerConfig, error
 	}
 
 	return &spec, &config, nil
+}
+
+func ReferenceIsValid(refStr string) (bool, error) {
+	ref, err := name.ParseReference(refStr)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = remote.Head(ref)
+	if err != nil {
+		if strings.Contains(err.Error(), "unexpected status code 404 Not Found") {
+			return false, nil
+		} else {
+			return false, err
+		}
+
+	}
+
+	return true, nil
 }
 
 func tarFilesRead(files []string, tarFile io.Reader) (map[string][]byte, error) {

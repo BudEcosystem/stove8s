@@ -40,6 +40,7 @@ import (
 
 	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
 	"bud.studio/stove8s/internal/daemonset/resources/oci"
+	oci_utils "bud.studio/stove8s/internal/oci"
 )
 
 const (
@@ -110,6 +111,34 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
+	// NOTE: stateless till here
+
+	if snapshot.Status.OutPutReferenceIsValid {
+		err := r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
+		if err != nil {
+			log.Error(err, "unable to swap the container image")
+		}
+		return ctrl.Result{}, err
+	} else {
+		valid, err := oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference)
+		if err != nil {
+			log.Error(err, "unable to check output image existence")
+			return ctrl.Result{}, err
+		}
+		if valid {
+			snapshot.Status.OutPutReferenceIsValid = true
+			if err := r.Status().Update(ctx, snapshot); err != nil {
+				log.Error(err, "unable to update Snapshot status")
+				return ctrl.Result{}, err
+			}
+			err := r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
+			if err != nil {
+				log.Error(err, "unable to swap the container image")
+			}
+			return ctrl.Result{}, err
+		}
+	}
+
 	readyIdx := slices.IndexFunc(pod.Status.Conditions, func(condition corev1.PodCondition) bool {
 		return condition.Type == corev1.PodReady
 	})
@@ -117,8 +146,6 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Info("Pod not in ready status, waiting for events", "Pod", pod.Name)
 		return ctrl.Result{}, nil
 	}
-
-	// NOTE: stateless till here
 
 	snapshot.Status.Stage = stove8sv1beta1.CriuDumping
 	snapshot.Status.State = stove8sv1beta1.Started
@@ -178,19 +205,49 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	ociStatus, err := daemonsetStausFetch(snapshot.Status.JobID, snapshot.Status.Node)
+	if snapshot.Status.Stage != stove8sv1beta1.Pushing || snapshot.Status.State != stove8sv1beta1.Success {
+		ociStatus, err := daemonsetStausFetch(snapshot.Status.JobID, snapshot.Status.Node)
+		if err != nil {
+			log.Error(err, "unable fetch daemonset job status")
+			return ctrl.Result{}, err
+		}
+		snapshot.Status.Stage = stove8sv1beta1.SnapShotStatusStage(ociStatus.Stage)
+		snapshot.Status.State = stove8sv1beta1.SnapShotStatusState(ociStatus.State)
+		if err := r.Status().Update(ctx, snapshot); err != nil {
+			log.Error(err, "unable to update Snapshot status")
+			return ctrl.Result{}, err
+		}
+	}
+
+	valid, err := oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference)
 	if err != nil {
-		log.Error(err, "unable fetch daemonset job status")
+		log.Error(err, "unable to check output image existence")
 		return ctrl.Result{}, err
 	}
-	snapshot.Status.Stage = stove8sv1beta1.SnapShotStatusStage(ociStatus.Stage)
-	snapshot.Status.State = stove8sv1beta1.SnapShotStatusState(ociStatus.State)
-	if err := r.Status().Update(ctx, snapshot); err != nil {
-		log.Error(err, "unable to update Snapshot status")
+	if valid {
+		snapshot.Status.OutPutReferenceIsValid = true
+		if err := r.Status().Update(ctx, snapshot); err != nil {
+			log.Error(err, "unable to update Snapshot status")
+			return ctrl.Result{}, err
+		}
+		err := r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
+		if err != nil {
+			log.Error(err, "unable to swap the container image")
+		}
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *SnapShotReconciler) PodImageUpdate(
+	ctx context.Context,
+	pod *corev1.Pod, imageRef string,
+	containerIdx int,
+) error {
+	patch := client.MergeFrom(pod)
+	pod.Spec.Containers[containerIdx].Image = imageRef
+	return r.Patch(ctx, pod, patch)
 }
 
 func daemonsetStausFetch(
