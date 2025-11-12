@@ -131,6 +131,8 @@ spec:
                 - kubelet_port
                 - name
                 type: object
+              output_reference_is_valid:
+                type: boolean
               stage:
                 default: Fromating
                 type: string
@@ -141,6 +143,7 @@ spec:
             - checkpoint_node_path
             - job_id
             - node
+            - output_reference_is_valid
             - stage
             - state
             type: object
