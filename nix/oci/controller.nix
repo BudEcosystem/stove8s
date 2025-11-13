@@ -9,6 +9,7 @@ dockerTools.buildLayeredImage {
 
   contents = [
     stove8s-controller
+    dockerTools.caCertificates
   ];
 
   config = {
