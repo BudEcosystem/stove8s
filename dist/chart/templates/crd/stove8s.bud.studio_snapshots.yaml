@@ -64,8 +64,6 @@ spec:
                 properties:
                   containerRegistry:
                     properties:
-                      image_reference:
-                        type: string
                       imagePushSecret:
                         properties:
                           name:
@@ -75,8 +73,10 @@ spec:
                         required:
                         - name
                         type: object
+                      imageReference:
+                        type: string
                     required:
-                    - image_reference
+                    - imageReference
                     type: object
                 required:
                 - containerRegistry
@@ -109,29 +109,29 @@ spec:
           status:
             description: status defines the observed state of SnapShot
             properties:
-              checkpoint_node_path:
+              checkpointNodePath:
                 type: string
-              job_id:
+              jobId:
                 type: string
               node:
                 properties:
                   addr:
                     type: string
-                  deamonset_port:
+                  deamonsetPort:
                     format: int32
                     type: integer
-                  kubelet_port:
+                  kubeletPort:
                     format: int32
                     type: integer
                   name:
                     type: string
                 required:
                 - addr
-                - deamonset_port
-                - kubelet_port
+                - deamonsetPort
+                - kubeletPort
                 - name
                 type: object
-              output_reference_is_valid:
+              outputReferenceIsValid:
                 type: boolean
               stage:
                 default: Fromating
@@ -140,10 +140,10 @@ spec:
                 default: Idle
                 type: string
             required:
-            - checkpoint_node_path
-            - job_id
+            - checkpointNodePath
+            - jobId
             - node
-            - output_reference_is_valid
+            - outputReferenceIsValid
             - stage
             - state
             type: object

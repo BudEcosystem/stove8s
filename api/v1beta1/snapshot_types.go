@@ -66,7 +66,7 @@ type SnapShotOutputContainerRegistry struct {
 	// +optional
 	ImagePushSecret KindReference `json:"imagePushSecret"`
 	// +required
-	ImageReference string `json:"image_reference"`
+	ImageReference string `json:"imageReference"`
 }
 
 type SnapShotOutput struct {
@@ -109,8 +109,8 @@ const (
 type SnapShotStatusNode struct {
 	Name          string `json:"name"`
 	Addr          string `json:"addr"`
-	DeamonsetPort int32  `json:"deamonset_port"`
-	KubeletPort   int32  `json:"kubelet_port"`
+	DeamonsetPort int32  `json:"deamonsetPort"`
+	KubeletPort   int32  `json:"kubeletPort"`
 }
 
 // SnapShotStatus defines the observed state of SnapShot.
@@ -121,9 +121,9 @@ type SnapShotStatus struct {
 	State SnapShotStatusState `json:"state"`
 
 	Node                   SnapShotStatusNode `json:"node"`
-	CheckPointNodePath     string             `json:"checkpoint_node_path"`
-	JobID                  string             `json:"job_id"`
-	OutPutReferenceIsValid bool               `json:"output_reference_is_valid"`
+	CheckPointNodePath     string             `json:"checkpointNodePath"`
+	JobID                  string             `json:"jobId"`
+	OutPutReferenceIsValid bool               `json:"outputReferenceIsValid"`
 }
 
 // +kubebuilder:object:root=true
