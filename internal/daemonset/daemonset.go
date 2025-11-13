@@ -26,20 +26,22 @@ type Config struct {
 }
 
 func routerInit() (*chi.Mux, error) {
-	r := chi.NewRouter()
+	router := chi.NewRouter()
 
-	r.Use(middleware.Timeout(time.Second))
-	r.Use(middlewareServerHeader)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	router.Use(middleware.Timeout(time.Second))
+	router.Use(middlewareServerHeader)
+	router.Use(middleware.Recoverer)
 
 	ociHandler, err := oci.OciResource{}.Init()
 	if err != nil {
 		return nil, err
 	}
-	r.Mount("/oci", ociHandler)
+	router.Route("/oci", func(r chi.Router) {
+		r.Use(middleware.Logger)
+		router.Mount("/", ociHandler)
+	})
 
-	r.HandleFunc("/healthz", func(rw http.ResponseWriter, req *http.Request) {
+	router.HandleFunc("/healthz", func(rw http.ResponseWriter, req *http.Request) {
 		rw.Header().Set("Content-Type", "text/plain")
 		rw.WriteHeader(http.StatusOK)
 		_, err := rw.Write([]byte("OK"))
@@ -48,7 +50,7 @@ func routerInit() (*chi.Mux, error) {
 		}
 	})
 
-	return r, nil
+	return router, nil
 }
 
 func configInit() *Config {
@@ -102,6 +104,7 @@ func Run() {
 		serverCtxCancel()
 	}()
 
+	slog.Info("stove8s-daemonset HTTP server starting", "addr", srv.Addr)
 	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
