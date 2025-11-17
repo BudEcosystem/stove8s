@@ -10,20 +10,21 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - pods
   verbs:
   - get
   - list
   - patch
   - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
   - watch
 - apiGroups:
   - stove8s.bud.studio
