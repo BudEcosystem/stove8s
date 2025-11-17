@@ -4,7 +4,7 @@
   dockerTools,
 }:
 let
-  port = 8008;
+  port = 32167;
 in
 dockerTools.buildLayeredImage {
   name = "docker.io/budstudio/stove8s-daemonset";

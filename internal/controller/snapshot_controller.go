@@ -45,7 +45,7 @@ import (
 
 const (
 	podCaCertPath     = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	daemonsetNodePort = 31008
+	daemonsetNodePort = 32167
 )
 
 // SnapShotReconciler reconciles a SnapShot object
