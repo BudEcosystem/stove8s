@@ -4,7 +4,7 @@
   dockerTools,
 }:
 let
-  port = 32167;
+  port = 8008;
 in
 dockerTools.buildLayeredImage {
   name = "docker.io/budstudio/stove8s-daemonset";
@@ -17,9 +17,6 @@ dockerTools.buildLayeredImage {
   config = {
     Cmd = [
       (lib.getExe stove8s-daemonset)
-    ];
-    Env = [
-      "PORT=${builtins.toString port}"
     ];
     ExposedPorts = {
       "${builtins.toString port}/tcp" = { };
