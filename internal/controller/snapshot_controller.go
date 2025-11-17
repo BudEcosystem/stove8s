@@ -124,12 +124,16 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	secretNamespace := snapshot.Spec.Output.ContainerRegistry.ImagePushSecret.Namespace
+	if secretNamespace == "" {
+		secretNamespace = snapshot.Namespace
+	}
 	containerRegistrySecret := corev1.Secret{}
 	err = r.Get(
 		ctx,
 		apitypes.NamespacedName{
 			Name:      snapshot.Spec.Output.ContainerRegistry.ImagePushSecret.Name,
-			Namespace: snapshot.Spec.Output.ContainerRegistry.ImagePushSecret.Namespace,
+			Namespace: secretNamespace,
 		},
 		&containerRegistrySecret,
 	)
@@ -210,6 +214,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			snapshot.Spec.Output.ContainerRegistry,
 			snapshot.Status.CheckPointNodePath,
 			snapshot.Status.Node,
+			secretNamespace,
 		)
 		if err != nil {
 			log.Error(err, "unable init daemonset job")
@@ -314,12 +319,13 @@ func daemonsetInit(
 	output stove8sv1beta1.SnapShotOutputContainerRegistry,
 	checkPointNodePath string,
 	node stove8sv1beta1.SnapShotStatusNode,
+	secretNamespace string,
 ) (string, error) {
 	data := oci.CreateReq{
 		CheckpointDumpPath: checkPointNodePath,
 		ImagePushSecret: oci.CreateReqImagePushSecret{
 			Name:      output.ImagePushSecret.Name,
-			Namespace: output.ImagePushSecret.Namespace,
+			Namespace: secretNamespace,
 		},
 		ImageReference: output.ImageReference,
 	}
