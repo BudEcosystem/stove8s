@@ -210,7 +210,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	if snapshot.Status.JobID != "" {
+	if snapshot.Status.JobID == "" {
 		jobId, err := daemonsetInit(
 			snapshot.Spec.Output.ContainerRegistry,
 			snapshot.Status.CheckPointNodePath,
