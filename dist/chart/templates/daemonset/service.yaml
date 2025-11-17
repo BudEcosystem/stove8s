@@ -8,7 +8,8 @@ metadata:
 spec:
   type: NodePort
   selector:
-    app: stove8s-daemonset
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+    control-plane: daemonset
   ports:
     - name: http
       port: 80
