@@ -63,6 +63,7 @@ type CheckPointResp struct {
 // +kubebuilder:rbac:groups=stove8s.bud.studio,resources=snapshots/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=stove8s.bud.studio,resources=snapshots/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -123,7 +124,21 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	valid, err := oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference)
+	containerRegistrySecret := corev1.Secret{}
+	err = r.Get(
+		ctx,
+		apitypes.NamespacedName{
+			Name:      snapshot.Spec.Output.ContainerRegistry.ImagePushSecret.Name,
+			Namespace: snapshot.Spec.Output.ContainerRegistry.ImagePushSecret.Namespace,
+		},
+		&containerRegistrySecret,
+	)
+	if err != nil {
+		log.Error(err, "Failed to get image push secret")
+		return ctrl.Result{}, err
+	}
+
+	valid, err := oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference, &containerRegistrySecret)
 	if err != nil {
 		log.Error(err, "unable to check output image existence")
 		return ctrl.Result{}, err
@@ -224,7 +239,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	valid, err = oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference)
+	valid, err = oci_utils.ReferenceIsValid(snapshot.Spec.Output.ContainerRegistry.ImageReference, &containerRegistrySecret)
 	if err != nil {
 		log.Error(err, "unable to check output image existence")
 		return ctrl.Result{}, err

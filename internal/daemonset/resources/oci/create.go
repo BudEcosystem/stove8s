@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"bud.studio/stove8s/internal/k8s"
 	"bud.studio/stove8s/internal/oci"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -50,7 +51,8 @@ func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	status.Stage = Pushing
 	status.State = Started
 
-	auth, err := rs.k8sImagePushSecretGet(
+	auth, err := k8s.ImagePushSecretGet(
+		rs.k8sClient,
 		data.ImagePushSecret.Name,
 		data.ImagePushSecret.Namespace,
 		ref.Context().RegistryStr(),

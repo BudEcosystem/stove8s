@@ -2,7 +2,9 @@ package oci
 
 import (
 	"archive/tar"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +15,8 @@ import (
 	"time"
 
 	"bud.studio/stove8s/internal/version"
+	"github.com/docker/cli/cli/config"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/compression"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -22,6 +26,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -87,12 +92,12 @@ func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
 		return nil, fmt.Errorf("mutating configFile: %v", err)
 	}
 
-	spec, config, err := dumpInspect(checkpointDump)
+	spec, dumpConfig, err := dumpInspect(checkpointDump)
 	if err != nil {
 		return nil, err
 	}
 
-	img, err = mutate.Time(img, config.CheckpointedAt)
+	img, err = mutate.Time(img, dumpConfig.CheckpointedAt)
 	if err != nil {
 		return nil, fmt.Errorf("mutating time: %v", err)
 	}
@@ -108,7 +113,7 @@ func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
 			},
 		},
 	})
-	annotations, err := annotationsFromDump(spec, config)
+	annotations, err := annotationsFromDump(spec, dumpConfig)
 	if err != nil {
 		return nil, fmt.Errorf("getting annotations: %v", err)
 	}
@@ -117,7 +122,7 @@ func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
 	return idx, nil
 }
 
-func annotationsFromDump(spec *specs.Spec, config *ContainerConfig) (map[string]string, error) {
+func annotationsFromDump(spec *specs.Spec, containerConfig *ContainerConfig) (map[string]string, error) {
 	annotations := make(map[string]string)
 
 	criName, ok := spec.Annotations["io.container.manager"]
@@ -131,10 +136,10 @@ func annotationsFromDump(spec *specs.Spec, config *ContainerConfig) (map[string]
 	annotations[CheckpointAnnotationName] = spec.Annotations["io.kubernetes.cri.container-name"]
 	annotations[CheckpointAnnotationPod] = spec.Annotations["io.kubernetes.cri.sandbox-name"]
 	annotations[CheckpointAnnotationNamespace] = spec.Annotations["io.kubernetes.cri.sandbox-namespace"]
-	annotations[CheckpointAnnotationRootfsImageUserRequested] = config.RootfsImage
-	annotations[CheckpointAnnotationRootfsImageName] = config.RootfsImageName
-	annotations[CheckpointAnnotationRootfsImageID] = config.RootfsImageRef
-	annotations[CheckpointAnnotationRuntimeName] = config.OCIRuntime
+	annotations[CheckpointAnnotationRootfsImageUserRequested] = containerConfig.RootfsImage
+	annotations[CheckpointAnnotationRootfsImageName] = containerConfig.RootfsImageName
+	annotations[CheckpointAnnotationRootfsImageID] = containerConfig.RootfsImageRef
+	annotations[CheckpointAnnotationRuntimeName] = containerConfig.OCIRuntime
 
 	return annotations, nil
 }
@@ -156,24 +161,29 @@ func dumpInspect(checkpointDump io.Reader) (*specs.Spec, *ContainerConfig, error
 		return nil, nil, err
 	}
 
-	var config ContainerConfig
-	err = json.Unmarshal(raw[ConfigDumpFile], &config)
+	var continerConfig ContainerConfig
+	err = json.Unmarshal(raw[ConfigDumpFile], &continerConfig)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return &spec, &config, nil
+	return &spec, &continerConfig, nil
 }
 
-func ReferenceIsValid(refStr string) (bool, error) {
+func ReferenceIsValid(refStr string, authSecret *corev1.Secret) (bool, error) {
 	ref, err := name.ParseReference(refStr)
 	if err != nil {
 		return false, err
 	}
 
-	_, err = remote.Head(ref)
+	auth, err := AuthFromK8sSecret(authSecret, ref.Context().Registry.String())
 	if err != nil {
-		if strings.Contains(err.Error(), "unexpected status code 404 Not Found") {
+		return false, err
+	}
+
+	_, err = remote.Head(ref, remote.WithAuth(auth))
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
 			return false, nil
 		} else {
 			return false, err
@@ -226,4 +236,31 @@ func tarFilesRead(files []string, tarFile io.Reader) (map[string][]byte, error) 
 	}
 
 	return res, nil
+}
+
+func AuthFromK8sSecret(secret *corev1.Secret, registry string) (authn.Authenticator, error) {
+	if secret.Type != corev1.SecretTypeDockerConfigJson {
+		return nil, fmt.Errorf("secret is not of type %s", corev1.SecretTypeDockerConfigJson)
+	}
+	dockerConfigBytes, exists := secret.Data[corev1.DockerConfigJsonKey]
+	if !exists {
+		return nil, errors.New("secret missing .dockerconfigjson field")
+	}
+
+	fileCfg, err := config.LoadFromReader(bytes.NewReader(dockerConfigBytes))
+	if err != nil {
+		return nil, err
+	}
+	authCfg, err := fileCfg.GetAuthConfig(registry)
+	if err != nil {
+		return nil, err
+	}
+
+	return authn.FromConfig(authn.AuthConfig{
+		Username:      authCfg.Username,
+		Password:      authCfg.Password,
+		Auth:          authCfg.Auth,
+		IdentityToken: authCfg.IdentityToken,
+		RegistryToken: authCfg.RegistryToken,
+	}), nil
 }
