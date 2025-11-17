@@ -194,7 +194,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	if snapshot.Status.CheckPointNodePath != "" {
+	if snapshot.Status.CheckPointNodePath == "" {
 		checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
 		if err != nil {
 			snapshot.Status.State = stove8sv1beta1.Failed
@@ -345,17 +345,17 @@ func daemonsetInit(
 	if err != nil {
 		return "", err
 	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
 	err = resp.Body.Close()
 	if err != nil {
 		return "", err
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
+		return "", fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, body)
 	}
 	var createResp oci.CreateResp
 	if err := json.Unmarshal(body, &createResp); err != nil {
