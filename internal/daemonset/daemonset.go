@@ -38,7 +38,7 @@ func routerInit() (*chi.Mux, error) {
 	}
 	router.Route("/oci", func(r chi.Router) {
 		r.Use(middleware.Logger)
-		router.Mount("/", ociHandler)
+		r.Mount("/", ociHandler)
 	})
 
 	router.HandleFunc("/healthz", func(rw http.ResponseWriter, req *http.Request) {
