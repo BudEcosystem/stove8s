@@ -173,11 +173,13 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	snapshot.Status.Stage = stove8sv1beta1.CriuDumping
-	snapshot.Status.State = stove8sv1beta1.Started
-	if err := r.Status().Update(ctx, snapshot); err != nil {
-		log.Error(err, "unable to update Snapshot status")
-		return ctrl.Result{}, err
+	if snapshot.Status.Stage == "" {
+		snapshot.Status.Stage = stove8sv1beta1.CriuDumping
+		snapshot.Status.State = stove8sv1beta1.Started
+		if err := r.Status().Update(ctx, snapshot); err != nil {
+			log.Error(err, "unable to update Snapshot status")
+			return ctrl.Result{}, err
+		}
 	}
 
 	if snapshot.Status.Node == (stove8sv1beta1.SnapShotStatusNode{}) {
