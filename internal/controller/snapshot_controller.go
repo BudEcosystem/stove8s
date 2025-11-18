@@ -300,10 +300,6 @@ func daemonsetStausFetch(
 	if err != nil {
 		return nil, err
 	}
-	err = resp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -312,6 +308,11 @@ func daemonsetStausFetch(
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+	err = resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
 	var ociStatus oci.OciStatus
 	if err := json.Unmarshal(body, &ociStatus); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
