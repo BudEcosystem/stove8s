@@ -45,14 +45,17 @@ import (
 
 const (
 	podCaCertPath     = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	podTokenPath      = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	daemonsetNodePort = 31008
 )
 
 // SnapShotReconciler reconciles a SnapShot object
 type SnapShotReconciler struct {
 	client.Client
-	Scheme        *runtime.Scheme
+	Scheme *runtime.Scheme
+
 	kubeletClient http.Client
+	podToken      string
 }
 
 type CheckPointResp struct {
@@ -64,7 +67,8 @@ type CheckPointResp struct {
 // +kubebuilder:rbac:groups=stove8s.bud.studio,resources=snapshots/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=list
+// +kubebuilder:rbac:groups="",resources="nodes/checkpoint",verbs=create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -391,7 +395,7 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 		return "", fmt.Errorf("failed to kubelet endpoint: %v", err)
 	}
 	url := fmt.Sprintf(
-		"http://%v:%v/checkpoint/%v/%v/%v",
+		"https://%v:%v/checkpoint/%v/%v/%v",
 		nodeAddr,
 		kubeletPort,
 		pod.Namespace,
@@ -402,16 +406,21 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	if err != nil {
 		return "", fmt.Errorf("creating http request object: %v", err)
 	}
+	checkpointReq.Header.Add("Authorization", fmt.Sprintf("Bearer %s", r.podToken))
 	resp, err := r.kubeletClient.Do(checkpointReq)
 	if err != nil {
 		return "", fmt.Errorf("checkpoint request failed: %v", err)
 	}
 
-	var cr CheckPointResp
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("reading response body: %v", err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, body)
+	}
+
+	var cr CheckPointResp
 	err = json.Unmarshal(body, &cr)
 	if err != nil {
 		return "", fmt.Errorf("unmarsheling response: %v", err)
@@ -478,6 +487,11 @@ func (r *SnapShotReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		},
 	}
+	podToken, err := os.ReadFile(podTokenPath)
+	if err != nil {
+		return err
+	}
+	r.podToken = string(podToken)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&stove8sv1beta1.SnapShot{}).

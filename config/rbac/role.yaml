@@ -8,11 +8,14 @@ rules:
   - ""
   resources:
   - nodes
-  - secrets
   verbs:
-  - get
   - list
-  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes/checkpoint
+  verbs:
+  - create
 - apiGroups:
   - ""
   resources:
@@ -22,6 +25,14 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - stove8s.bud.studio
