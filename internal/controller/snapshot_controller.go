@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"slices"
@@ -67,7 +68,7 @@ type CheckPointResp struct {
 // +kubebuilder:rbac:groups=stove8s.bud.studio,resources=snapshots/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=nodes,verbs=list
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources="nodes/checkpoint",verbs=create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -243,7 +244,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		snapshot.Status.Stage = stove8sv1beta1.SnapShotStatusStage(ociStatus.Stage)
 		snapshot.Status.State = stove8sv1beta1.SnapShotStatusState(ociStatus.State)
 		if err := r.Status().Update(ctx, snapshot); err != nil {
-			log.Error(err, "unable to update Snapshot status")
+			log.Error(err, "unable to update Snapshot status with daemonset status")
 			return ctrl.Result{}, err
 		}
 	}
@@ -290,14 +291,11 @@ func daemonsetStausFetch(
 	jobId string,
 	node stove8sv1beta1.SnapShotStatusNode,
 ) (*oci.OciStatus, error) {
-	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", node.Addr, node.DeamonsetPort)
+	ociEndpoint := fmt.Sprintf("http://%s:%v/oci/%s", node.Addr, node.DeamonsetPort, jobId)
 	req, err := http.NewRequest(http.MethodGet, ociEndpoint, nil)
 	if err != nil {
 		return nil, err
 	}
-	query := req.URL.Query()
-	query.Add("job_id", jobId)
-	req.URL.RawQuery = query.Encode()
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err

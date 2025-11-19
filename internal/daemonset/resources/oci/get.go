@@ -30,7 +30,7 @@ func (rs OciResource) List(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (rs OciResource) Get(rw http.ResponseWriter, req *http.Request) {
-	idString := chi.URLParam(req, "job_id")
+	idString := chi.URLParam(req, "id")
 	if idString == "" {
 		http.Error(rw, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
