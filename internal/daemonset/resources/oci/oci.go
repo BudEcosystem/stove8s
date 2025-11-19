@@ -66,7 +66,8 @@ func (rs OciResource) Init() (chi.Router, error) {
 
 	r := chi.NewRouter()
 
-	r.Get("/", rs.Get)
+	r.Get("/", rs.List)
+	r.Get("/{job_id}", rs.Get)
 	r.Post("/", rs.Create)
 
 	r.Route("/{id}", func(r chi.Router) {
