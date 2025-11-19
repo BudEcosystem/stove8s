@@ -24,9 +24,8 @@ const (
 )
 
 type OciStatus struct {
-	Stage  ociStatusStage `json:"stage"`
-	State  ociStatusState `json:"state"`
-	Reason string         `json:"reason"`
+	Stage ociStatusStage `json:"stage"`
+	State ociStatusState `json:"state"`
 }
 
 type OciResource struct {
