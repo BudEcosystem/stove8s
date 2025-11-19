@@ -42,6 +42,10 @@ spec:
               value: {{ $value }}
             {{- end }}
           {{- end }}
+          volumeMounts:
+            - name: kubelet-checkpoint-path
+              mountPath: {{ .Values.daemonset.kubeletCheckpointPath | quote }}
+              readOnly: true
           livenessProbe:
             {{- toYaml .Values.daemonset.container.livenessProbe | nindent 12 }}
           readinessProbe:
@@ -50,6 +54,11 @@ spec:
             {{- toYaml .Values.daemonset.container.resources | nindent 12 }}
           securityContext:
             {{- toYaml .Values.daemonset.container.securityContext | nindent 12 }}
+      volumes:
+        - name: kubelet-checkpoint-path
+          hostPath:
+            path: {{ .Values.daemonset.kubeletCheckpointPath | quote }}
+            type: DirectoryOrCreate
       securityContext:
         {{- toYaml .Values.daemonset.securityContext | nindent 8 }}
       serviceAccountName: {{ .Values.controllerManager.serviceAccountName }}

@@ -116,3 +116,4 @@ daemonset:
       type: RuntimeDefault
   terminationGracePeriodSeconds: 10
   serviceAccountName: stove8s-daemonset
+  kubeletCheckpointPath: /var/lib/kubelet/checkpoints
