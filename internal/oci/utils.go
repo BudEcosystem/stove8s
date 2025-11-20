@@ -82,6 +82,7 @@ func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
 	cfg.Architecture = runtime.GOARCH
 	cfg.OS = runtime.GOOS
 	cfg.Config = v1.Config{
+		WorkingDir: "/",
 		Labels: map[string]string{
 			"studio.bud.stove8s.version": version.Version,
 		},
