@@ -41,7 +41,7 @@ func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
 		status.State = Failed
 		return
 	}
-	ref, err := name.ParseReference("harbor.bud.studio/stove8s/test:latest")
+	ref, err := name.ParseReference(data.ImageReference)
 	if err != nil {
 		slog.Error("Creating reference", "err", err)
 		status.State = Failed
