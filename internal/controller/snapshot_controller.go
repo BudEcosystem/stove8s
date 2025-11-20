@@ -122,7 +122,13 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// NOTE: stateless till here
 
 	if snapshot.Status.OutPutReferenceIsValid {
-		err := r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
+		err := r.PodImageUpdate(
+			ctx,
+			pod,
+			snapshot.Spec.Output.ContainerRegistry.ImageReference,
+			containerIdx,
+			snapshot.Spec.Output.ContainerRegistry.ImagePushSecret.Name,
+		)
 		if err != nil {
 			log.Error(err, "unable to swap the container image")
 		}
@@ -158,7 +164,13 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			log.Error(err, "unable to update Snapshot status")
 			return ctrl.Result{}, err
 		}
-		err := r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
+		err := r.PodImageUpdate(
+			ctx,
+			pod,
+			snapshot.Spec.Output.ContainerRegistry.ImageReference,
+			containerIdx,
+			snapshot.Spec.Output.ContainerRegistry.ImagePushSecret.Name,
+		)
 		if err != nil {
 			log.Error(err, "unable to swap the container image")
 		}
@@ -267,7 +279,13 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Error(err, "unable to update Snapshot status")
 		return ctrl.Result{}, err
 	}
-	err = r.PodImageUpdate(ctx, pod, snapshot.Spec.Output.ContainerRegistry.ImageReference, containerIdx)
+	err = r.PodImageUpdate(
+		ctx,
+		pod,
+		snapshot.Spec.Output.ContainerRegistry.ImageReference,
+		containerIdx,
+		snapshot.Spec.Output.ContainerRegistry.ImagePushSecret.Name,
+	)
 	if err != nil {
 		log.Error(err, "unable to swap the container image")
 		return ctrl.Result{}, err
@@ -280,10 +298,15 @@ func (r *SnapShotReconciler) PodImageUpdate(
 	ctx context.Context,
 	pod *corev1.Pod, imageRef string,
 	containerIdx int,
+	imagePullSecret string,
 ) error {
-	patch := client.MergeFrom(pod)
 	pod.Spec.Containers[containerIdx].Image = imageRef
-	return r.Patch(ctx, pod, patch)
+	// Forbidden: pod updates may not change fields other than `spec.containers[*].image`
+	// pod.Spec.ImagePullSecrets = append(
+	// 	pod.Spec.ImagePullSecrets,
+	// 	corev1.LocalObjectReference{Name: imagePullSecret},
+	// )
+	return r.Update(ctx, pod)
 }
 
 func daemonsetStausFetch(
