@@ -53,8 +53,8 @@ func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
 
 	auth, err := k8s.ImagePushSecretGet(
 		rs.k8sClient,
-		data.ImagePushSecret.Name,
 		data.ImagePushSecret.Namespace,
+		data.ImagePushSecret.Name,
 		ref.Context().RegistryStr(),
 	)
 	if err != nil {
