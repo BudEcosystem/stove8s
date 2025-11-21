@@ -87,6 +87,10 @@ func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
 			"studio.bud.stove8s.version": version.Version,
 		},
 	}
+	if len(cfg.History) != 1 {
+		return nil, fmt.Errorf("expected len(History) == 1 and got %d", len(cfg.History))
+	}
+	cfg.History[0].CreatedBy = "stove8s"
 
 	img, err = mutate.ConfigFile(img, cfg)
 	if err != nil {
