@@ -35,7 +35,7 @@ func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	}
 	rs.jobs[id] = &status
 
-	idx, err := oci.BuildIdx(data.CheckpointDumpPath)
+	img, err := oci.BuildImage(data.CheckpointDumpPath)
 	if err != nil {
 		slog.Error("Building oci image", "err", err)
 		status.State = Failed
@@ -62,9 +62,9 @@ func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
 		status.State = Failed
 		return
 	}
-	err = remote.WriteIndex(
+	err = remote.Write(
 		ref,
-		idx,
+		img,
 		remote.WithAuth(auth),
 	)
 	if err != nil {

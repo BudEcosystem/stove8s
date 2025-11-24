@@ -17,14 +17,12 @@ import (
 	"bud.studio/stove8s/internal/version"
 	"github.com/docker/cli/cli/config"
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/compression"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -47,7 +45,7 @@ type ContainerConfig struct {
 	Restored        bool      `json:"restored"`
 }
 
-func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
+func BuildImage(checkpointDumpPath string) (v1.Image, error) {
 	checkpointDump, err := os.Open(checkpointDumpPath)
 	if err != nil {
 		return nil, err
@@ -62,9 +60,6 @@ func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
 	// TODO: checkpointDumpLayer := stream.NewLayer(checkpointDump)
 	checkpointDumpLayer, err := tarball.LayerFromFile(
 		checkpointDumpPath,
-		// TODO: this is not working, layer is still application/vnd.docker.image.rootfs.diff.tar.gzip
-		tarball.WithMediaType(types.OCILayer),
-		tarball.WithCompression(compression.None),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("getting layer from file: %v", err)
@@ -107,24 +102,13 @@ func BuildIdx(checkpointDumpPath string) (v1.ImageIndex, error) {
 		return nil, fmt.Errorf("mutating time: %v", err)
 	}
 
-	img = mutate.ConfigMediaType(img, types.OCIManifestSchema1)
-	idx := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{
-		Add: img,
-		Descriptor: v1.Descriptor{
-			MediaType: types.OCIManifestSchema1,
-			Platform: &v1.Platform{
-				Architecture: runtime.GOARCH,
-				OS:           runtime.GOOS,
-			},
-		},
-	})
 	annotations, err := annotationsFromDump(spec, dumpConfig)
 	if err != nil {
 		return nil, fmt.Errorf("getting annotations: %v", err)
 	}
-	idx = mutate.Annotations(idx, annotations).(v1.ImageIndex)
+	img = mutate.Annotations(img, annotations).(v1.Image)
 
-	return idx, nil
+	return img, nil
 }
 
 func annotationsFromDump(spec *specs.Spec, containerConfig *ContainerConfig) (map[string]string, error) {
