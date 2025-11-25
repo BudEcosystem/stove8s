@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
 	"bud.studio/stove8s/internal/k8s"
 	"bud.studio/stove8s/internal/oci"
 	"github.com/go-playground/validator/v10"
@@ -28,28 +29,28 @@ type CreateResp struct {
 	JobID string `json:"job_id"`
 }
 
-func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
-	status := OciStatus{
-		Stage: Fromating,
-		State: Started,
+func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
+	status := Status{
+		Stage: stove8sv1beta1.Fromating,
+		State: stove8sv1beta1.Started,
 	}
 	rs.jobs[id] = &status
 
 	img, err := oci.BuildImage(data.CheckpointDumpPath)
 	if err != nil {
 		slog.Error("Building oci image", "err", err)
-		status.State = Failed
+		status.State = stove8sv1beta1.Failed
 		return
 	}
 	ref, err := name.ParseReference(data.ImageReference)
 	if err != nil {
 		slog.Error("Creating reference", "err", err)
-		status.State = Failed
+		status.State = stove8sv1beta1.Failed
 		return
 	}
 
-	status.Stage = Pushing
-	status.State = Started
+	status.Stage = stove8sv1beta1.Pushing
+	status.State = stove8sv1beta1.Started
 
 	auth, err := k8s.ImagePushSecretGet(
 		rs.k8sClient,
@@ -59,7 +60,7 @@ func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	)
 	if err != nil {
 		slog.Error("Getting image push secret", "err", err)
-		status.State = Failed
+		status.State = stove8sv1beta1.Failed
 		return
 	}
 	err = remote.Write(
@@ -69,14 +70,14 @@ func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	)
 	if err != nil {
 		slog.Error("Pushing to remote", "err", err)
-		status.State = Failed
+		status.State = stove8sv1beta1.Failed
 		return
 	}
 
-	status.State = Success
+	status.State = stove8sv1beta1.Success
 }
 
-func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
+func (rs Resource) Create(rw http.ResponseWriter, req *http.Request) {
 	var data CreateReq
 	err := json.NewDecoder(req.Body).Decode(&data)
 	if err != nil {

@@ -10,10 +10,10 @@ import (
 )
 
 type listResp struct {
-	Jobs map[uuid.UUID]*OciStatus `json:"jobs"`
+	Jobs map[uuid.UUID]*Status `json:"jobs"`
 }
 
-func (rs OciResource) List(rw http.ResponseWriter, req *http.Request) {
+func (rs Resource) List(rw http.ResponseWriter, req *http.Request) {
 	resp, err := json.Marshal(listResp{
 		Jobs: rs.jobs,
 	})
@@ -29,7 +29,7 @@ func (rs OciResource) List(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (rs OciResource) Get(rw http.ResponseWriter, req *http.Request) {
+func (rs Resource) Get(rw http.ResponseWriter, req *http.Request) {
 	idString := chi.URLParam(req, "id")
 	if idString == "" {
 		http.Error(rw, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)

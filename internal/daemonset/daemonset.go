@@ -32,7 +32,7 @@ func routerInit() (*chi.Mux, error) {
 	router.Use(middlewareServerHeader)
 	router.Use(middleware.Recoverer)
 
-	ociHandler, err := oci.OciResource{}.Init()
+	ociHandler, err := oci.Resource{}.Init()
 	if err != nil {
 		return nil, err
 	}

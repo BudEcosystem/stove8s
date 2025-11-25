@@ -250,8 +250,8 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			log.Error(err, "unable fetch daemonset job status")
 			return ctrl.Result{}, err
 		}
-		snapshot.Status.Stage = stove8sv1beta1.SnapShotStatusStage(ociStatus.Stage)
-		snapshot.Status.State = stove8sv1beta1.SnapShotStatusState(ociStatus.State)
+		snapshot.Status.Stage = ociStatus.Stage
+		snapshot.Status.State = ociStatus.State
 		if err := r.Status().Update(ctx, snapshot); err != nil {
 			log.Error(err, "unable to update Snapshot status with daemonset status")
 			return ctrl.Result{}, err
@@ -310,7 +310,7 @@ func (r *SnapShotReconciler) PodImageUpdate(
 func daemonsetStausFetch(
 	jobID string,
 	node stove8sv1beta1.SnapShotStatusNode,
-) (*oci.OciStatus, error) {
+) (*oci.Status, error) {
 	ociEndpoint := fmt.Sprintf("http://%s:%v/oci/%s", node.Addr, node.DeamonsetPort, jobID)
 	req, err := http.NewRequest(http.MethodGet, ociEndpoint, nil)
 	if err != nil {
@@ -324,7 +324,7 @@ func daemonsetStausFetch(
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var ociStatus oci.OciStatus
+	var ociStatus oci.Status
 	err = json.NewDecoder(resp.Body).Decode(&ociStatus)
 	if err != nil {
 		return nil, err
@@ -372,7 +372,7 @@ func daemonsetInit(
 		return "", err
 	}
 
-	return createResp.JobId, nil
+	return createResp.JobID, nil
 }
 
 func (r *SnapShotReconciler) kubeletEndpointFromPod(ctx context.Context, pod *corev1.Pod) (string, string, int32, error) {
