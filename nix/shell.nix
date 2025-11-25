@@ -6,6 +6,7 @@
   nixfmt-rfc-style,
   markdownlint-cli,
   helm-ls,
+  golint,
 
   kubebuilder,
   jq,
@@ -21,6 +22,7 @@ mkShell {
   ];
 
   buildInputs = [
+    golint
     jq
     kubebuilder
     gopls
