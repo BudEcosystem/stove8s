@@ -322,22 +322,14 @@ func daemonsetStausFetch(
 	if err != nil {
 		return nil, err
 	}
-
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
 
 	var ociStatus oci.OciStatus
-	if err := json.Unmarshal(body, &ociStatus); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+	err = json.NewDecoder(resp.Body).Decode(&ociStatus)
+	if err != nil {
+		return nil, err
 	}
 
 	return &ociStatus, nil
@@ -372,21 +364,14 @@ func daemonsetInit(
 	if err != nil {
 		return "", err
 	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return "", err
+	if resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
-	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, body)
-	}
 	var createResp oci.CreateResp
-	if err := json.Unmarshal(body, &createResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal JSON: %w", err)
+	err = json.NewDecoder(resp.Body).Decode(&createResp)
+	if err != nil {
+		return "", err
 	}
 
 	return createResp.JobId, nil
@@ -434,19 +419,14 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	if err != nil {
 		return "", fmt.Errorf("checkpoint request failed: %v", err)
 	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("reading response body: %v", err)
-	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, body)
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	var cr CheckPointResp
-	err = json.Unmarshal(body, &cr)
+	err = json.NewDecoder(resp.Body).Decode(&cr)
 	if err != nil {
-		return "", fmt.Errorf("unmarsheling response: %v", err)
+		return "", err
 	}
 	if len(cr.Items) != 1 {
 		return "", errors.New("unexpected output")
