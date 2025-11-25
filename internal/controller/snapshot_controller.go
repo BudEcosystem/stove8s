@@ -71,7 +71,6 @@ type CheckPointResp struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
 // NOTE: breaking down the Reconcile() function furhter will reduce the readability
@@ -96,9 +95,9 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		if requeue {
 			return ctrl.Result{}, nil
-		} else {
-			return ctrl.Result{}, err
 		}
+
+		return ctrl.Result{}, err
 	}
 	err = controllerutil.SetControllerReference(snapshot, pod, r.Scheme)
 	if err != nil {
@@ -228,7 +227,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if snapshot.Status.JobID == "" {
-		jobId, err := daemonsetInit(
+		jobID, err := daemonsetInit(
 			snapshot.Spec.Output.ContainerRegistry,
 			snapshot.Status.CheckPointNodePath,
 			snapshot.Status.Node,
@@ -238,7 +237,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			log.Error(err, "unable init daemonset job")
 			return ctrl.Result{}, err
 		}
-		snapshot.Status.JobID = jobId
+		snapshot.Status.JobID = jobID
 		if err := r.Status().Update(ctx, snapshot); err != nil {
 			log.Error(err, "unable to update Snapshot status")
 			return ctrl.Result{}, err
@@ -309,10 +308,10 @@ func (r *SnapShotReconciler) PodImageUpdate(
 }
 
 func daemonsetStausFetch(
-	jobId string,
+	jobID string,
 	node stove8sv1beta1.SnapShotStatusNode,
 ) (*oci.OciStatus, error) {
-	ociEndpoint := fmt.Sprintf("http://%s:%v/oci/%s", node.Addr, node.DeamonsetPort, jobId)
+	ociEndpoint := fmt.Sprintf("http://%s:%v/oci/%s", node.Addr, node.DeamonsetPort, jobID)
 	req, err := http.NewRequest(http.MethodGet, ociEndpoint, nil)
 	if err != nil {
 		return nil, err

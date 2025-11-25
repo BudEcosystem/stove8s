@@ -48,9 +48,10 @@ type SnapShotSelector struct {
 	Container string `json:"container"`
 }
 
+// SnapShotInputPolicy will(TODO:) add support for Replace, etc ...
 type SnapShotInputPolicy string
 
-// TODO: add support for Replace, etc ...
+// IfNotPresent only creates a SnapShot if it's not already present
 const IfNotPresent SnapShotInputPolicy = "IfNotPresent"
 
 type SnapShotInput struct {
@@ -92,17 +93,24 @@ type SnapShotSpec struct {
 type SnapShotStatusStage string
 
 const (
+	// CriuDumping indicates that we called the kublet api and checkpointing is in progress
 	CriuDumping SnapShotStatusStage = "CriuDumping"
-	Fromating   SnapShotStatusStage = "Fromating"
-	Pushing     SnapShotStatusStage = "Pushing"
+	// Fromating indicates that image creation using the checkpoited data is in progress
+	Fromating SnapShotStatusStage = "Fromating"
+	// Pushing indicates we're uploading the OCI image to specified container registry
+	Pushing SnapShotStatusStage = "Pushing"
 )
 
 type SnapShotStatusState string
 
 const (
-	Idle    SnapShotStatusState = "Idle"
+	// Idle indicates the operation has not started
+	Idle SnapShotStatusState = "Idle"
+	// Started indicates the operation has started
 	Started SnapShotStatusState = "Started"
-	Failed  SnapShotStatusState = "Failed"
+	// Failed indicates the operation has failed
+	Failed SnapShotStatusState = "Failed"
+	// Success indicates the operation has completed successfully
 	Success SnapShotStatusState = "Success"
 )
 

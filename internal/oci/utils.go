@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	ConfigDumpFile = "config.dump"
-	SpecDumpFile   = "spec.dump"
+	configDumpFile = "config.dump"
+	specDumpFile   = "spec.dump"
 )
 
 type ContainerConfig struct {
@@ -135,8 +135,8 @@ func annotationsFromDump(spec *specs.Spec, containerConfig *ContainerConfig) (ma
 
 func dumpInspect(checkpointDump io.Reader) (*specs.Spec, *ContainerConfig, error) {
 	files := []string{
-		SpecDumpFile,
-		ConfigDumpFile,
+		specDumpFile,
+		configDumpFile,
 	}
 
 	raw, err := tarFilesRead(files, checkpointDump)
@@ -145,13 +145,13 @@ func dumpInspect(checkpointDump io.Reader) (*specs.Spec, *ContainerConfig, error
 	}
 
 	var spec specs.Spec
-	err = json.Unmarshal(raw[SpecDumpFile], &spec)
+	err = json.Unmarshal(raw[specDumpFile], &spec)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var continerConfig ContainerConfig
-	err = json.Unmarshal(raw[ConfigDumpFile], &continerConfig)
+	err = json.Unmarshal(raw[configDumpFile], &continerConfig)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -174,9 +174,8 @@ func ReferenceIsValid(refStr string, authSecret *corev1.Secret) (bool, error) {
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
 			return false, nil
-		} else {
-			return false, err
 		}
+		return false, err
 
 	}
 

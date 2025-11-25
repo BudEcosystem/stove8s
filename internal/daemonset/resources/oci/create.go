@@ -25,7 +25,7 @@ type CreateReq struct {
 }
 
 type CreateResp struct {
-	JobId string `json:"job_id"`
+	JobID string `json:"job_id"`
 }
 
 func (rs OciResource) CreateAsync(id uuid.UUID, data *CreateReq) {
@@ -97,7 +97,7 @@ func (rs OciResource) Create(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	resp, err := json.Marshal(CreateResp{
-		JobId: id.String(),
+		JobID: id.String(),
 	})
 	if err != nil {
 		slog.Error("Marshaling response json", "err", err.Error())
