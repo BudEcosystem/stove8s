@@ -28,8 +28,10 @@ import (
 	"os"
 	"slices"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apitypes "k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -43,9 +45,10 @@ import (
 )
 
 const (
-	podCaCertPath     = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	podTokenPath      = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	daemonsetNodePort = 31008
+	podCaCertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	podTokenPath  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	daemonsetPort = 80
+	daemonsetName = "stove8s-daemonset"
 )
 
 // SnapShotReconciler reconciles a SnapShot object
@@ -193,15 +196,26 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if snapshot.Status.Node == (stove8sv1beta1.SnapShotStatusNode{}) {
-		nodeName, nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
+		daemonSetPodIP, err := r.getDaemonSetPodIPOnNode(
+			ctx,
+			snapshot.Namespace,
+			daemonsetName,
+			pod.Spec.NodeName,
+		)
+		if err != nil {
+			log.Error(err, "unable to get deamonset endpoint for pod")
+			return ctrl.Result{}, err
+		}
+		nodeName, _, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
 		if err != nil {
 			log.Error(err, "unable to get kubelet endpoint for pod")
 			return ctrl.Result{}, err
 		}
+
 		snapshot.Status.Node = stove8sv1beta1.SnapShotStatusNode{
 			Name:          nodeName,
-			Addr:          nodeAddr,
-			DeamonsetPort: daemonsetNodePort,
+			DeamonsetAddr: daemonSetPodIP,
+			DeamonsetPort: daemonsetPort,
 			KubeletPort:   kubeletPort,
 		}
 		if err := r.Status().Update(ctx, snapshot); err != nil {
@@ -311,7 +325,7 @@ func daemonsetStausFetch(
 	jobID string,
 	node stove8sv1beta1.SnapShotStatusNode,
 ) (*oci.Status, error) {
-	ociEndpoint := fmt.Sprintf("http://%s:%v/oci/%s", node.Addr, node.DeamonsetPort, jobID)
+	ociEndpoint := fmt.Sprintf("http://%s:%v/oci/%s", node.DeamonsetAddr, node.DeamonsetPort, jobID)
 	req, err := http.NewRequest(http.MethodGet, ociEndpoint, nil)
 	if err != nil {
 		return nil, err
@@ -353,7 +367,7 @@ func daemonsetInit(
 		return "", err
 	}
 
-	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", node.Addr, node.DeamonsetPort)
+	ociEndpoint := fmt.Sprintf("http://%s:%v/oci", node.DeamonsetAddr, node.DeamonsetPort)
 	req, err := http.NewRequest(http.MethodPost, ociEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", err
@@ -395,6 +409,51 @@ func (r *SnapShotReconciler) kubeletEndpointFromPod(ctx context.Context, pod *co
 	addr := node.Status.Addresses[idx].Address
 	port := node.Status.DaemonEndpoints.KubeletEndpoint.Port
 	return name, addr, port, nil
+}
+
+func (r *SnapShotReconciler) getDaemonSetPodIPOnNode(
+	ctx context.Context,
+	daemonSetNamespace string,
+	daemonSetName string,
+	nodeName string,
+) (string, error) {
+	ds := &appsv1.DaemonSet{}
+	err := r.Get(ctx, apitypes.NamespacedName{
+		Namespace: daemonSetNamespace,
+		Name:      daemonSetName,
+	}, ds)
+	if err != nil {
+		return "", fmt.Errorf("failed to get DaemonSet %s/%s: %w", daemonSetNamespace, daemonSetName, err)
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(ds.Spec.Selector)
+	if err != nil {
+		return "", fmt.Errorf("invalid selector in DaemonSet %s/%s: %w", daemonSetNamespace, daemonSetName, err)
+	}
+
+	podList := &corev1.PodList{}
+	err = r.List(ctx, podList,
+		client.InNamespace(daemonSetName),
+		client.MatchingLabelsSelector{Selector: selector},
+		client.MatchingFields{".spec.nodeName": nodeName},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to list pods for DaemonSet %s on node %s: %w", daemonSetName, nodeName, err)
+	}
+
+	if len(podList.Items) == 0 {
+		return "", fmt.Errorf("no pod found for DaemonSet %s on node %s", daemonSetName, nodeName)
+	} else if len(podList.Items) > 1 {
+		return "", fmt.Errorf("Multiple pods found for DaemonSet %s on node %s", daemonSetName, nodeName)
+	}
+
+	pod := &podList.Items[0]
+	// looking for 0.0.0.0 to check if CNI fails (IP exhaustion, etc...)
+	if pod.Status.PodIP == "" || pod.Status.PodIP == "0.0.0.0" {
+		return "", fmt.Errorf("pod %s/%s has no assigned IP yet", daemonSetNamespace, pod.Name)
+	}
+
+	return pod.Status.PodIP, nil
 }
 
 func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {

@@ -116,7 +116,7 @@ const (
 
 type SnapShotStatusNode struct {
 	Name          string `json:"name"`
-	Addr          string `json:"addr"`
+	DeamonsetAddr string `json:"deamonsetAddr"`
 	DeamonsetPort int32  `json:"deamonsetPort"`
 	KubeletPort   int32  `json:"kubeletPort"`
 }

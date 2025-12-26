@@ -55,6 +55,8 @@ spec:
                     format: int64
                     type: integer
                   policy:
+                    description: SnapShotInputPolicy will(TODO:) add support for Replace,
+                      etc ...
                     type: string
                 required:
                 - delay
@@ -115,7 +117,7 @@ spec:
                 type: string
               node:
                 properties:
-                  addr:
+                  deamonsetAddr:
                     type: string
                   deamonsetPort:
                     format: int32
@@ -126,7 +128,7 @@ spec:
                   name:
                     type: string
                 required:
-                - addr
+                - deamonsetAddr
                 - deamonsetPort
                 - kubeletPort
                 - name
