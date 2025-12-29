@@ -45,10 +45,11 @@ import (
 )
 
 const (
-	podCaCertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	podTokenPath  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	daemonsetPort = 80
-	daemonsetName = "stove8s-daemonset"
+	podCaCertPath    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	podTokenPath     = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	podNameSpacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+	daemonsetPort    = 80
+	daemonsetName    = "stove8s-daemonset"
 )
 
 // SnapShotReconciler reconciles a SnapShot object
@@ -70,6 +71,7 @@ type CheckPointResp struct {
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources="nodes/checkpoint",verbs=create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -195,10 +197,16 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	stove8sNamespace, err := os.ReadFile(podNameSpacePath)
+	if err != nil {
+		log.Error(err, "Failed to get image stove8s namespace")
+		return ctrl.Result{}, err
+	}
+
 	if snapshot.Status.Node == (stove8sv1beta1.SnapShotStatusNode{}) {
 		daemonSetPodIP, err := r.getDaemonSetPodIPOnNode(
 			ctx,
-			snapshot.Namespace,
+			string(stove8sNamespace),
 			daemonsetName,
 			pod.Spec.NodeName,
 		)
@@ -433,21 +441,27 @@ func (r *SnapShotReconciler) getDaemonSetPodIPOnNode(
 
 	podList := &corev1.PodList{}
 	err = r.List(ctx, podList,
-		client.InNamespace(daemonSetName),
+		client.InNamespace(daemonSetNamespace),
 		client.MatchingLabelsSelector{Selector: selector},
-		client.MatchingFields{".spec.nodeName": nodeName},
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to list pods for DaemonSet %s on node %s: %w", daemonSetName, nodeName, err)
 	}
 
-	if len(podList.Items) == 0 {
+	var pods []corev1.Pod
+	for _, pod := range podList.Items {
+		if pod.Spec.NodeName == nodeName {
+			pods = append(pods, pod)
+		}
+	}
+
+	if len(pods) == 0 {
 		return "", fmt.Errorf("no pod found for DaemonSet %s on node %s", daemonSetName, nodeName)
-	} else if len(podList.Items) > 1 {
+	} else if len(pods) > 1 {
 		return "", fmt.Errorf("Multiple pods found for DaemonSet %s on node %s", daemonSetName, nodeName)
 	}
 
-	pod := &podList.Items[0]
+	pod := pods[0]
 	// looking for 0.0.0.0 to check if CNI fails (IP exhaustion, etc...)
 	if pod.Status.PodIP == "" || pod.Status.PodIP == "0.0.0.0" {
 		return "", fmt.Errorf("pod %s/%s has no assigned IP yet", daemonSetNamespace, pod.Name)

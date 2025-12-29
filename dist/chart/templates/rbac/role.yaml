@@ -33,6 +33,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - stove8s.bud.studio
   resources:
   - snapshots
