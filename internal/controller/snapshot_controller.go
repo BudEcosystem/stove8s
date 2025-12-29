@@ -250,6 +250,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	if snapshot.Status.JobID == "" {
 		jobID, err := daemonsetInit(
+			ctx,
 			snapshot.Spec.Output.ContainerRegistry,
 			snapshot.Status.CheckPointNodePath,
 			snapshot.Status.Node,
@@ -267,7 +268,7 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if snapshot.Status.Stage != stove8sv1beta1.Pushing || snapshot.Status.State != stove8sv1beta1.Success {
-		ociStatus, err := daemonsetStausFetch(snapshot.Status.JobID, snapshot.Status.Node)
+		ociStatus, err := daemonsetStausFetch(ctx, snapshot.Status.JobID, snapshot.Status.Node)
 		if err != nil {
 			log.Error(err, "unable fetch daemonset job status")
 			return ctrl.Result{}, err
@@ -330,9 +331,12 @@ func (r *SnapShotReconciler) PodImageUpdate(
 }
 
 func daemonsetStausFetch(
+	ctx context.Context,
 	jobID string,
 	node stove8sv1beta1.SnapShotStatusNode,
 ) (*oci.Status, error) {
+	log := logf.FromContext(ctx)
+
 	ociEndpoint := fmt.Sprintf("http://%s:%v/oci/%s", node.DeamonsetAddr, node.DeamonsetPort, jobID)
 	req, err := http.NewRequest(http.MethodGet, ociEndpoint, nil)
 	if err != nil {
@@ -342,7 +346,12 @@ func daemonsetStausFetch(
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Error(err, "Closing response body")
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -357,11 +366,14 @@ func daemonsetStausFetch(
 }
 
 func daemonsetInit(
+	ctx context.Context,
 	output stove8sv1beta1.SnapShotOutputContainerRegistry,
 	checkPointNodePath string,
 	node stove8sv1beta1.SnapShotStatusNode,
 	secretNamespace string,
 ) (string, error) {
+	log := logf.FromContext(ctx)
+
 	data := oci.CreateReq{
 		CheckpointDumpPath: checkPointNodePath,
 		ImagePushSecret: oci.CreateReqImagePushSecret{
@@ -385,7 +397,12 @@ func daemonsetInit(
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Error(err, "Closing response body")
+		}
+	}()
 	if resp.StatusCode != http.StatusCreated {
 		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
@@ -458,7 +475,7 @@ func (r *SnapShotReconciler) getDaemonSetPodIPOnNode(
 	if len(pods) == 0 {
 		return "", fmt.Errorf("no pod found for DaemonSet %s on node %s", daemonSetName, nodeName)
 	} else if len(pods) > 1 {
-		return "", fmt.Errorf("Multiple pods found for DaemonSet %s on node %s", daemonSetName, nodeName)
+		return "", fmt.Errorf("multiple pods found for DaemonSet %s on node %s", daemonSetName, nodeName)
 	}
 
 	pod := pods[0]
@@ -471,6 +488,8 @@ func (r *SnapShotReconciler) getDaemonSetPodIPOnNode(
 }
 
 func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {
+	log := logf.FromContext(ctx)
+
 	_, nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
 	if err != nil {
 		return "", fmt.Errorf("failed to kubelet endpoint: %v", err)
@@ -492,7 +511,12 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 	if err != nil {
 		return "", fmt.Errorf("checkpoint request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Error(err, "Closing response body")
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
