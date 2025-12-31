@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"slices"
@@ -353,7 +354,8 @@ func daemonsetStausFetch(
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code for daemonsetStausFetch: %d: %s", resp.StatusCode, body)
 	}
 
 	var ociStatus oci.Status
@@ -404,7 +406,8 @@ func daemonsetInit(
 		}
 	}()
 	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("unexpected status code for daemonsetInit: %d", resp.StatusCode, body)
 	}
 
 	var createResp oci.CreateResp
@@ -518,7 +521,8 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("unexpected status code for checkpoint: %d: %s", resp.StatusCode, body)
 	}
 
 	var cr CheckPointResp
