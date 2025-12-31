@@ -55,6 +55,8 @@ type SnapShotInputPolicy string
 const IfNotPresent SnapShotInputPolicy = "IfNotPresent"
 
 type SnapShotInput struct {
+	// +optional
+	Timeout int `json:"timeout"`
 	// +required
 	Delay time.Duration `json:"delay"`
 	// +required

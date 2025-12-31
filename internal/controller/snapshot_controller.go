@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -234,7 +235,12 @@ func (r *SnapShotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if snapshot.Status.CheckPointNodePath == "" {
-		checkPointNodePath, err := r.checkpoint(ctx, pod, snapshot.Spec.Selector.Container)
+		checkPointNodePath, err := r.checkpoint(
+			ctx,
+			pod,
+			snapshot.Spec.Selector.Container,
+			snapshot.Spec.Input.Timeout,
+		)
 		if err != nil {
 			snapshot.Status.State = stove8sv1beta1.Failed
 			if err := r.Status().Update(ctx, snapshot); err != nil {
@@ -407,7 +413,7 @@ func daemonsetInit(
 	}()
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("unexpected status code for daemonsetInit: %d", resp.StatusCode, body)
+		return "", fmt.Errorf("unexpected status code for daemonsetInit: %d: %s", resp.StatusCode, body)
 	}
 
 	var createResp oci.CreateResp
@@ -490,7 +496,12 @@ func (r *SnapShotReconciler) getDaemonSetPodIPOnNode(
 	return pod.Status.PodIP, nil
 }
 
-func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {
+func (r *SnapShotReconciler) checkpoint(
+	ctx context.Context,
+	pod *corev1.Pod,
+	containerName string,
+	timeout int,
+) (string, error) {
 	log := logf.FromContext(ctx)
 
 	_, nodeAddr, kubeletPort, err := r.kubeletEndpointFromPod(ctx, pod)
@@ -510,6 +521,11 @@ func (r *SnapShotReconciler) checkpoint(ctx context.Context, pod *corev1.Pod, co
 		return "", fmt.Errorf("creating http request object: %v", err)
 	}
 	checkpointReq.Header.Add("Authorization", fmt.Sprintf("Bearer %s", r.podToken))
+	if timeout != 0 {
+		q := checkpointReq.URL.Query()
+		q.Set("timeout", strconv.Itoa(timeout))
+		checkpointReq.URL.RawQuery = q.Encode()
+	}
 	resp, err := r.kubeletClient.Do(checkpointReq)
 	if err != nil {
 		return "", fmt.Errorf("checkpoint request failed: %v", err)

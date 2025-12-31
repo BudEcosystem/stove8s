@@ -58,6 +58,8 @@ spec:
                     description: SnapShotInputPolicy will(TODO:) add support for Replace,
                       etc ...
                     type: string
+                  timeout:
+                    type: integer
                 required:
                 - delay
                 - policy
