@@ -2,6 +2,7 @@ package oci
 
 import (
 	"encoding/json"
+	"log"
 	"log/slog"
 	"net/http"
 
@@ -36,7 +37,16 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	}
 	rs.jobs[id] = &status
 
-	img, err := oci.BuildImage(data.CheckpointDumpPath)
+	img, dumpFile, err := oci.BuildImage(data.CheckpointDumpPath)
+	defer func() {
+		if dumpFile == nil {
+			return
+		}
+		err := dumpFile.Close()
+		if err != nil {
+			log.Fatalln("Closing checkpoint dump", err)
+		}
+	}()
 	if err != nil {
 		slog.Error("Building oci image", "err", err)
 		status.State = stove8sv1beta1.Failed

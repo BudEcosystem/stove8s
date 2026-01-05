@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"runtime"
 	"slices"
@@ -22,7 +21,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -45,70 +44,50 @@ type ContainerConfig struct {
 	Restored        bool      `json:"restored"`
 }
 
-func BuildImage(checkpointDumpPath string) (v1.Image, error) {
+func BuildImage(checkpointDumpPath string) (v1.Image, *os.File, error) {
 	checkpointDump, err := os.Open(checkpointDumpPath)
 	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err := checkpointDump.Close()
-		if err != nil {
-			log.Fatalln("Closing checkpoint dump", err)
-		}
-	}()
-
-	// TODO: checkpointDumpLayer := stream.NewLayer(checkpointDump)
-	checkpointDumpLayer, err := tarball.LayerFromFile(
-		checkpointDumpPath,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("getting layer from file: %v", err)
-	}
-
-	img, err := mutate.AppendLayers(empty.Image, checkpointDumpLayer)
-	if err != nil {
-		return nil, fmt.Errorf("appending Layer: %v", err)
-	}
-
-	cfg, err := img.ConfigFile()
-	if err != nil {
-		return nil, fmt.Errorf("getting configFile: %v", err)
-	}
-	cfg.Architecture = runtime.GOARCH
-	cfg.OS = runtime.GOOS
-	cfg.Config = v1.Config{
-		WorkingDir: "/",
-		Labels: map[string]string{
-			"studio.bud.stove8s.version": version.Version,
-		},
-	}
-	if len(cfg.History) != 1 {
-		return nil, fmt.Errorf("expected len(History) == 1 and got %d", len(cfg.History))
-	}
-	cfg.History[0].CreatedBy = "stove8s"
-
-	img, err = mutate.ConfigFile(img, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("mutating configFile: %v", err)
+		return nil, nil, err
 	}
 
 	spec, dumpConfig, err := dumpInspect(checkpointDump)
 	if err != nil {
-		return nil, err
+		return nil, checkpointDump, err
 	}
+	checkpointDump.Seek(0, io.SeekStart)
 
-	img, err = mutate.Time(img, dumpConfig.CheckpointedAt)
+	cfg := v1.ConfigFile{
+		Architecture: runtime.GOARCH,
+		OS:           runtime.GOOS,
+		Config: v1.Config{
+			WorkingDir: "/",
+			Labels: map[string]string{
+				"studio.bud.stove8s.version": version.Version,
+			},
+		},
+		History: []v1.History{{
+			CreatedBy: "stove8s",
+			Created:   v1.Time{Time: dumpConfig.CheckpointedAt},
+		}},
+	}
+	img, err := mutate.ConfigFile(empty.Image, &cfg)
 	if err != nil {
-		return nil, fmt.Errorf("mutating time: %v", err)
+		return nil, checkpointDump, fmt.Errorf("mutating configFile: %v", err)
 	}
 
 	annotations, err := annotationsFromDump(spec, dumpConfig)
 	if err != nil {
-		return nil, fmt.Errorf("getting annotations: %v", err)
+		return nil, checkpointDump, fmt.Errorf("getting annotations: %v", err)
 	}
 	img = mutate.Annotations(img, annotations).(v1.Image)
 
-	return img, nil
+	checkpointDumpLayer := stream.NewLayer(checkpointDump)
+	img, err = mutate.AppendLayers(img, checkpointDumpLayer)
+	if err != nil {
+		return nil, checkpointDump, fmt.Errorf("appending Layer: %v", err)
+	}
+
+	return img, checkpointDump, nil
 }
 
 func annotationsFromDump(spec *specs.Spec, containerConfig *ContainerConfig) (map[string]string, error) {
