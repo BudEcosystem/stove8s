@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"runtime"
 	"slices"
@@ -45,6 +46,14 @@ type ContainerConfig struct {
 }
 
 func BuildImage(checkpointDumpPath string) (v1.Image, *os.File, error) {
+	var checkpointDump *os.File
+	on_err_exit := func() {
+		err := checkpointDump.Close()
+		if err != nil {
+			slog.Error("Closing checkpointDump file", "err", err)
+		}
+	}
+
 	checkpointDump, err := os.Open(checkpointDumpPath)
 	if err != nil {
 		return nil, nil, err
@@ -52,11 +61,13 @@ func BuildImage(checkpointDumpPath string) (v1.Image, *os.File, error) {
 
 	spec, dumpConfig, err := dumpInspect(checkpointDump)
 	if err != nil {
-		return nil, checkpointDump, err
+		on_err_exit()
+		return nil, nil, err
 	}
 	_, err = checkpointDump.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, checkpointDump, err
+		on_err_exit()
+		return nil, nil, err
 	}
 
 	cfg := v1.ConfigFile{
@@ -75,19 +86,22 @@ func BuildImage(checkpointDumpPath string) (v1.Image, *os.File, error) {
 	}
 	img, err := mutate.ConfigFile(empty.Image, &cfg)
 	if err != nil {
-		return nil, checkpointDump, fmt.Errorf("mutating configFile: %v", err)
+		on_err_exit()
+		return nil, nil, fmt.Errorf("mutating configFile: %v", err)
 	}
 
 	annotations, err := annotationsFromDump(spec, dumpConfig)
 	if err != nil {
-		return nil, checkpointDump, fmt.Errorf("getting annotations: %v", err)
+		on_err_exit()
+		return nil, nil, fmt.Errorf("getting annotations: %v", err)
 	}
 	img = mutate.Annotations(img, annotations).(v1.Image)
 
 	checkpointDumpLayer := stream.NewLayer(checkpointDump)
 	img, err = mutate.AppendLayers(img, checkpointDumpLayer)
 	if err != nil {
-		return nil, checkpointDump, fmt.Errorf("appending Layer: %v", err)
+		on_err_exit()
+		return nil, nil, fmt.Errorf("appending Layer: %v", err)
 	}
 
 	return img, checkpointDump, nil

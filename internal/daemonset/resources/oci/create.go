@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
 
 	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
 	"bud.studio/stove8s/internal/k8s"
@@ -36,21 +37,26 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	}
 	rs.jobs[id] = &status
 
-	img, dumpFile, err := oci.BuildImage(data.CheckpointDumpPath)
-	defer func() {
-		if dumpFile != nil {
-			dumpFile.Close()
+	var dumpFile *os.File
+	on_err_exit := func() {
+		status.State = stove8sv1beta1.Failed
+
+		err := dumpFile.Close()
+		if err != nil {
+			slog.Error("Closing checkpointDump file", "err", err)
 		}
-	}()
+	}
+
+	img, dumpFile, err := oci.BuildImage(data.CheckpointDumpPath)
 	if err != nil {
 		slog.Error("Building oci image", "err", err)
-		status.State = stove8sv1beta1.Failed
+		on_err_exit()
 		return
 	}
 	ref, err := name.ParseReference(data.ImageReference)
 	if err != nil {
 		slog.Error("Creating reference", "err", err)
-		status.State = stove8sv1beta1.Failed
+		on_err_exit()
 		return
 	}
 
@@ -65,7 +71,7 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	)
 	if err != nil {
 		slog.Error("Getting image push secret", "err", err)
-		status.State = stove8sv1beta1.Failed
+		on_err_exit()
 		return
 	}
 	err = remote.Write(
@@ -75,8 +81,10 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	)
 	if err != nil {
 		slog.Error("Pushing to remote", "err", err)
-		status.State = stove8sv1beta1.Failed
+		on_err_exit()
 		return
+	} else {
+		slog.Info("Push Completed", "image", data.ImageReference)
 	}
 
 	status.State = stove8sv1beta1.Success
