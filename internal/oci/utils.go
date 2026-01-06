@@ -54,7 +54,10 @@ func BuildImage(checkpointDumpPath string) (v1.Image, *os.File, error) {
 	if err != nil {
 		return nil, checkpointDump, err
 	}
-	checkpointDump.Seek(0, io.SeekStart)
+	_, err = checkpointDump.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, checkpointDump, err
+	}
 
 	cfg := v1.ConfigFile{
 		Architecture: runtime.GOARCH,

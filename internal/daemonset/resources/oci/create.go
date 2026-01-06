@@ -2,7 +2,6 @@ package oci
 
 import (
 	"encoding/json"
-	"log"
 	"log/slog"
 	"net/http"
 
@@ -39,12 +38,8 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 
 	img, dumpFile, err := oci.BuildImage(data.CheckpointDumpPath)
 	defer func() {
-		if dumpFile == nil {
-			return
-		}
-		err := dumpFile.Close()
-		if err != nil {
-			log.Fatalln("Closing checkpoint dump", err)
+		if dumpFile != nil {
+			dumpFile.Close()
 		}
 	}()
 	if err != nil {
