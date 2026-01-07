@@ -47,7 +47,7 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 		}
 	}
 
-	img, dumpFile, err := oci.BuildImage(data.CheckpointDumpPath)
+	img, dumpFile, dumpLayer, err := oci.BuildImage(data.CheckpointDumpPath)
 	if err != nil {
 		slog.Error("Building oci image", "err", err)
 		on_err_exit()
@@ -74,17 +74,32 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 		on_err_exit()
 		return
 	}
+
+	repo := ref.Context().Repo(ref.Context().RepositoryStr())
+	err = remote.WriteLayer(
+		repo,
+		dumpLayer,
+		remote.WithAuth(auth),
+	)
+	if err != nil {
+		slog.Error("Pushing layer to remote", "err", err)
+		on_err_exit()
+		return
+	} else {
+		slog.Info("Pushed CRIU dump", "image", data.ImageReference)
+	}
+
 	err = remote.Write(
 		ref,
 		img,
 		remote.WithAuth(auth),
 	)
 	if err != nil {
-		slog.Error("Pushing to remote", "err", err)
+		slog.Error("Pushing image to remote", "err", err)
 		on_err_exit()
 		return
 	} else {
-		slog.Info("Push Completed", "image", data.ImageReference)
+		slog.Info("Pushed image", "image", data.ImageReference)
 	}
 
 	status.State = stove8sv1beta1.Success
