@@ -3,6 +3,7 @@ package oci
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -97,7 +98,10 @@ func BuildImage(checkpointDumpPath string) (v1.Image, *os.File, *stream.Layer, e
 	}
 	img = mutate.Annotations(img, annotations).(v1.Image)
 
-	checkpointDumpLayer := stream.NewLayer(checkpointDump)
+	checkpointDumpLayer := stream.NewLayer(
+		io.NopCloser(checkpointDump),
+		stream.WithCompressionLevel(gzip.BestCompression),
+	)
 	img, err = mutate.AppendLayers(img, checkpointDumpLayer)
 	if err != nil {
 		on_err_exit()

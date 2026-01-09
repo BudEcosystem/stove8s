@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"os"
 
 	stove8sv1beta1 "bud.studio/stove8s/api/v1beta1"
 	"bud.studio/stove8s/internal/k8s"
@@ -37,26 +36,22 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	}
 	rs.jobs[id] = &status
 
-	var dumpFile *os.File
-	on_err_exit := func() {
+	img, dumpFile, dumpLayer, err := oci.BuildImage(data.CheckpointDumpPath)
+	if err != nil {
+		slog.Error("Building oci image", "err", err)
 		status.State = stove8sv1beta1.Failed
-
+		return
+	}
+	defer func() {
 		err := dumpFile.Close()
 		if err != nil {
 			slog.Error("Closing checkpointDump file", "err", err)
 		}
-	}
-
-	img, dumpFile, dumpLayer, err := oci.BuildImage(data.CheckpointDumpPath)
-	if err != nil {
-		slog.Error("Building oci image", "err", err)
-		on_err_exit()
-		return
-	}
+	}()
 	ref, err := name.ParseReference(data.ImageReference)
 	if err != nil {
 		slog.Error("Creating reference", "err", err)
-		on_err_exit()
+		status.State = stove8sv1beta1.Failed
 		return
 	}
 
@@ -71,7 +66,7 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	)
 	if err != nil {
 		slog.Error("Getting image push secret", "err", err)
-		on_err_exit()
+		status.State = stove8sv1beta1.Failed
 		return
 	}
 
@@ -82,8 +77,8 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 		remote.WithAuth(auth),
 	)
 	if err != nil {
-		slog.Error("Pushing layer to remote", "err", err)
-		on_err_exit()
+		slog.Error("Pushing CRIU dump layer to remote", "err", err)
+		status.State = stove8sv1beta1.Failed
 		return
 	} else {
 		slog.Info("Pushed CRIU dump", "image", data.ImageReference)
@@ -96,7 +91,7 @@ func (rs Resource) CreateAsync(id uuid.UUID, data *CreateReq) {
 	)
 	if err != nil {
 		slog.Error("Pushing image to remote", "err", err)
-		on_err_exit()
+		status.State = stove8sv1beta1.Failed
 		return
 	} else {
 		slog.Info("Pushed image", "image", data.ImageReference)
