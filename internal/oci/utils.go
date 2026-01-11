@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"bud.studio/stove8s/internal/streamFile"
 	"bud.studio/stove8s/internal/version"
 	"github.com/docker/cli/cli/config"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -23,7 +24,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -46,29 +46,27 @@ type ContainerConfig struct {
 	Restored        bool      `json:"restored"`
 }
 
-func BuildImage(checkpointDumpPath string) (v1.Image, *os.File, *stream.Layer, error) {
+func BuildImage(checkpointDumpPath string) (v1.Image, *streamFile.Layer, error) {
 	var checkpointDump *os.File
-	on_err_exit := func() {
+	defer func() {
 		err := checkpointDump.Close()
 		if err != nil {
 			slog.Error("Closing checkpointDump file", "err", err)
 		}
-	}
+	}()
 
 	checkpointDump, err := os.Open(checkpointDumpPath)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	spec, dumpConfig, err := dumpInspect(checkpointDump)
 	if err != nil {
-		on_err_exit()
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	_, err = checkpointDump.Seek(0, io.SeekStart)
 	if err != nil {
-		on_err_exit()
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	cfg := v1.ConfigFile{
@@ -87,28 +85,25 @@ func BuildImage(checkpointDumpPath string) (v1.Image, *os.File, *stream.Layer, e
 	}
 	img, err := mutate.ConfigFile(empty.Image, &cfg)
 	if err != nil {
-		on_err_exit()
-		return nil, nil, nil, fmt.Errorf("mutating configFile: %v", err)
+		return nil, nil, fmt.Errorf("mutating configFile: %v", err)
 	}
 
 	annotations, err := annotationsFromDump(spec, dumpConfig)
 	if err != nil {
-		on_err_exit()
-		return nil, nil, nil, fmt.Errorf("getting annotations: %v", err)
+		return nil, nil, fmt.Errorf("getting annotations: %v", err)
 	}
 	img = mutate.Annotations(img, annotations).(v1.Image)
 
-	checkpointDumpLayer := stream.NewLayer(
-		io.NopCloser(checkpointDump),
-		stream.WithCompressionLevel(gzip.BestCompression),
+	checkpointDumpLayer, err := streamFile.NewLayer(
+		checkpointDumpPath,
+		streamFile.WithCompressionLevel(gzip.BestCompression),
 	)
 	img, err = mutate.AppendLayers(img, checkpointDumpLayer)
 	if err != nil {
-		on_err_exit()
-		return nil, nil, nil, fmt.Errorf("appending Layer: %v", err)
+		return nil, nil, fmt.Errorf("appending Layer: %v", err)
 	}
 
-	return img, checkpointDump, checkpointDumpLayer, nil
+	return img, checkpointDumpLayer, nil
 }
 
 func annotationsFromDump(spec *specs.Spec, containerConfig *ContainerConfig) (map[string]string, error) {
