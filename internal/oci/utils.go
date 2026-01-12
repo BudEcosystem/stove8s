@@ -3,7 +3,6 @@ package oci
 import (
 	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -94,10 +93,7 @@ func BuildImage(checkpointDumpPath string) (v1.Image, *streamFile.Layer, error) 
 	}
 	img = mutate.Annotations(img, annotations).(v1.Image)
 
-	checkpointDumpLayer, err := streamFile.NewLayer(
-		checkpointDumpPath,
-		streamFile.WithCompressionLevel(gzip.BestCompression),
-	)
+	checkpointDumpLayer, err := streamFile.NewLayer(checkpointDumpPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("creating streamFile layer: %v", err)
 	}

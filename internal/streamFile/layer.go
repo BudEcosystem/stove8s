@@ -17,23 +17,22 @@
 package streamFile
 
 import (
-	"compress/gzip"
 	"crypto"
 	"encoding/hex"
-	"errors"
 	"io"
 	"log/slog"
 	"os"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/klauspost/compress/zstd"
 )
 
 // Layer is a streaming implementation of v1.Layer.
 type Layer struct {
 	blobPath string
 
-	compression int
+	compression zstd.EncoderLevel
 	mediaType   types.MediaType
 
 	digest, diffID *v1.Hash
@@ -46,7 +45,7 @@ var _ v1.Layer = (*Layer)(nil)
 type LayerOption func(*Layer)
 
 // WithCompressionLevel sets the gzip compression. See `gzip.NewWriterLevel` for possible values.
-func WithCompressionLevel(level int) LayerOption {
+func WithCompressionLevel(level zstd.EncoderLevel) LayerOption {
 	return func(l *Layer) {
 		l.compression = level
 	}
@@ -74,10 +73,10 @@ func NewLayer(blobPath string, opts ...LayerOption) (*Layer, error) {
 
 	layer := &Layer{
 		blobPath:    blobPath,
-		compression: gzip.BestCompression,
+		compression: zstd.SpeedBetterCompression,
 		// We use DockerLayer for now as uncompressed layers
 		// are unimplemented
-		mediaType: types.DockerLayer,
+		mediaType: types.OCILayerZStd,
 	}
 	for _, opt := range opts {
 		opt(layer)
@@ -87,15 +86,15 @@ func NewLayer(blobPath string, opts ...LayerOption) (*Layer, error) {
 	compressedHash := crypto.SHA256.New()
 	compressedSize := &sizeWriter{}
 	multiWriter := io.MultiWriter(compressedHash, compressedSize)
-	gzipWriter, err := gzip.NewWriterLevel(multiWriter, layer.compression)
+	zWriter, err := zstd.NewWriter(multiWriter, zstd.WithEncoderLevel(layer.compression))
 	if err != nil {
 		return nil, err
 	}
-	_, err = io.Copy(io.MultiWriter(hash, gzipWriter), blob)
+	_, err = io.Copy(io.MultiWriter(hash, zWriter), blob)
 	if err != nil {
 		return nil, err
 	}
-	err = gzipWriter.Close()
+	err = zWriter.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +136,12 @@ func (l *Layer) MediaType() (types.MediaType, error) {
 
 // Uncompressed implements v1.Layer.
 func (l *Layer) Uncompressed() (io.ReadCloser, error) {
-	return nil, errors.New("NYI: streamFile.Layer.Uncompressed is not implemented")
+	blob, err := os.Open(l.blobPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return blob, nil
 }
 
 // Compressed implements v1.Layer.
@@ -148,17 +152,17 @@ func (l *Layer) Compressed() (io.ReadCloser, error) {
 	}
 
 	pr, pw := io.Pipe()
-	gzipWriter, err := gzip.NewWriterLevel(pw, l.compression)
+	zWriter, err := zstd.NewWriter(pw, zstd.WithEncoderLevel(l.compression))
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
-		_, err := io.Copy(gzipWriter, blob)
+		_, err := io.Copy(zWriter, blob)
 		if err != nil {
 			slog.Error("Copying blob to gzip writer", "err", err)
 		}
-		err = gzipWriter.Close()
+		err = zWriter.Close()
 		if err != nil {
 			slog.Error("Closing gzip writer", "err", err)
 		}
