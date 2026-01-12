@@ -161,23 +161,11 @@ func (l *Layer) Compressed() (io.ReadCloser, error) {
 
 		gzipWriter.Close()
 		pw.Close()
+		blob.Close()
 	}()
 
-	compressed := compressedReader{
-		gzipReader:     pr,
-		underlyingFile: blob,
-	}
-
-	return &compressed, nil
+	return io.NopCloser(pr), nil
 }
-
-type compressedReader struct {
-	gzipReader     io.Reader
-	underlyingFile *os.File
-}
-
-func (cr *compressedReader) Read(b []byte) (int, error) { return cr.gzipReader.Read(b) }
-func (cr *compressedReader) Close() error               { return cr.underlyingFile.Close() }
 
 type sizeWriter struct{ n int64 }
 
