@@ -98,6 +98,9 @@ func BuildImage(checkpointDumpPath string) (v1.Image, *streamFile.Layer, error) 
 		checkpointDumpPath,
 		streamFile.WithCompressionLevel(gzip.BestCompression),
 	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating streamFile layer: %v", err)
+	}
 	img, err = mutate.AppendLayers(img, checkpointDumpLayer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("appending Layer: %v", err)

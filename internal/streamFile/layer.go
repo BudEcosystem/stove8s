@@ -158,10 +158,18 @@ func (l *Layer) Compressed() (io.ReadCloser, error) {
 		if err != nil {
 			slog.Error("Copying blob to gzip writer", "err", err)
 		}
-
-		gzipWriter.Close()
-		pw.Close()
-		blob.Close()
+		err = gzipWriter.Close()
+		if err != nil {
+			slog.Error("Closing gzip writer", "err", err)
+		}
+		err = pw.Close()
+		if err != nil {
+			slog.Error("Closing pipe", "err", err)
+		}
+		err = blob.Close()
+		if err != nil {
+			slog.Error("Closing blob", "err", err)
+		}
 	}()
 
 	return io.NopCloser(pr), nil
