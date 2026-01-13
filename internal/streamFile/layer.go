@@ -74,9 +74,7 @@ func NewLayer(blobPath string, opts ...LayerOption) (*Layer, error) {
 	layer := &Layer{
 		blobPath:    blobPath,
 		compression: zstd.SpeedBetterCompression,
-		// We use DockerLayer for now as uncompressed layers
-		// are unimplemented
-		mediaType: types.OCILayerZStd,
+		mediaType:   types.OCILayerZStd,
 	}
 	for _, opt := range opts {
 		opt(layer)
